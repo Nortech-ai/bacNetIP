@@ -1,6 +1,5 @@
 package bacnet
 
-import "C"
 import (
 	"github.com/ytuox/bacnet/btypes"
 	"github.com/ytuox/bacnet/encoding"

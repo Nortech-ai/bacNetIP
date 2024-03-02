@@ -43,19 +43,20 @@ func (c *client) WhatIsNetworkNumber() (resp []*btypes.Address) {
 	values, err := c.utsm.Subscribe(1, 65534) //65534 is the max number a network can be
 	if err != nil {
 		fmt.Println(`err`, err)
+		return
 	}
 	err = <-errChan
 	if err != nil {
-
+		return
 	}
 
 	for _, v := range values {
 		r, ok := v.(btypes.NPDU)
-		if r.Source != nil {
-			resp = append(resp, r.Source)
-		}
 		if !ok {
 			continue
+		}
+		if r.Source != nil {
+			resp = append(resp, r.Source)
 		}
 	}
 	return resp

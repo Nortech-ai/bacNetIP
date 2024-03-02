@@ -12,7 +12,7 @@ import (
 )
 
 const interfaceName = "eth0"
-const testServer = 1234
+const testServer = 260001
 
 // TestMain are general test
 func TestUdpDataLink(t *testing.T) {
@@ -51,6 +51,145 @@ func TestServices(t *testing.T) {
 
 }
 
+func TestMain(t *testing.T) {
+	c, err := NewClient(&ClientBuilder{
+		Interface: "en0",
+		Ip:        "192.168.6.212",
+	})
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	go c.ClientRun()
+
+	wh := &WhoIsOpts{
+		GlobalBroadcast: true,
+		NetworkNumber:   0,
+	}
+	wh.Low = testServer - 1
+	wh.High = testServer + 1
+	devs, err := c.WhoIs(wh)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Println((devs))
+	ip := "192.168.6.212"
+	port := 47808
+
+	mac := make([]byte, 6)
+	fmt.Sscanf(ip, "%d.%d.%d.%d", &mac[0], &mac[1], &mac[2], &mac[3])
+	mac[4] = byte(port >> 8)
+	mac[5] = byte(port & 0x00FF)
+
+	bacnetDev := btypes.Device{
+		DeviceID: 1234,
+		Ip:       ip,
+		Port:     port,
+		MaxApdu:  1476,
+		Addr: btypes.Address{
+			MacLen: 6,
+			Mac:    mac,
+		},
+	}
+	// bacnetDev, err := c.Objects(dev)
+	// if err != nil {
+	// 	fmt.Println(err)
+	// 	return
+	// }
+
+	prop, err := c.ReadProperty(
+		bacnetDev,
+		btypes.PropertyData{
+			Object: btypes.Object{
+				ID: btypes.ObjectID{
+					Type:     btypes.AnalogOutput,
+					Instance: 1,
+				},
+				Properties: []btypes.Property{{
+					Type:       btypes.PropPresentValue,
+					ArrayIndex: encoding.ArrayAll,
+				}},
+			},
+		})
+	if err != nil {
+		fmt.Println("rp1", err)
+		return
+	}
+
+	value := fmt.Sprintf("%v", prop.Object.Properties[0].Data)
+	fmt.Println(value)
+
+	wp := btypes.PropertyData{
+		Object: btypes.Object{
+			ID: btypes.ObjectID{
+				Type:     btypes.AnalogOutput,
+				Instance: 1,
+			},
+			Properties: []btypes.Property{
+				{
+					Type:       btypes.PropPresentValue, // Present value
+					ArrayIndex: ArrayAll,
+					Priority:   btypes.Normal,
+					Data:       float32(1),
+				},
+			},
+		},
+	}
+	err = c.WriteProperty(bacnetDev, wp)
+	if err != nil {
+		fmt.Println("wp", err)
+		return
+	}
+
+	prop, err = c.ReadProperty(
+		bacnetDev,
+		btypes.PropertyData{
+			Object: btypes.Object{
+				ID: btypes.ObjectID{
+					Type:     btypes.AnalogOutput,
+					Instance: 1,
+				},
+				Properties: []btypes.Property{{
+					Type:       btypes.PropPresentValue,
+					ArrayIndex: encoding.ArrayAll,
+				}},
+			},
+		})
+	if err != nil {
+		fmt.Println("rp2", err)
+		return
+	}
+
+	value = fmt.Sprintf("%v", prop.Object.Properties[0].Data)
+	fmt.Println(value)
+
+	props, err := c.ReadMultiProperty(bacnetDev, btypes.MultiplePropertyData{Objects: []btypes.Object{
+		{
+			ID: btypes.ObjectID{
+				Type:     btypes.AnalogInput,
+				Instance: 0,
+			},
+			Properties: []btypes.Property{
+				{
+					Type:       btypes.PropAllProperties,
+					ArrayIndex: encoding.ArrayAll,
+				},
+				{
+					Type:       btypes.PropPresentValue,
+					ArrayIndex: encoding.ArrayAll,
+				},
+			},
+		},
+	}})
+
+	fmt.Println(props.Objects)
+	if err != nil {
+		fmt.Println("rmp", err)
+		return
+	}
+}
+
 func testReadPropertyService(c Client, t *testing.T) {
 	wh := &WhoIsOpts{
 		GlobalBroadcast: false,
@@ -66,7 +205,7 @@ func testReadPropertyService(c Client, t *testing.T) {
 				Instance: 1,
 			},
 			Properties: []btypes.Property{
-				btypes.Property{
+				{
 					Type:       btypes.PropObjectName, // Present value
 					ArrayIndex: ArrayAll,
 				},
@@ -119,7 +258,7 @@ func testWritePropertyService(c Client, t *testing.T) {
 				Instance: 1,
 			},
 			Properties: []btypes.Property{
-				btypes.Property{
+				{
 					Type:       btypes.PropObjectName, // Present value
 					ArrayIndex: ArrayAll,
 					Priority:   btypes.Normal,

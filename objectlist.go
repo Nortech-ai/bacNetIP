@@ -11,7 +11,7 @@ func (c *client) objectListLen(dev btypes.Device) (int, error) {
 		Object: btypes.Object{
 			ID: dev.ID,
 			Properties: []btypes.Property{
-				btypes.Property{
+				{
 					Type:       btypes.PropObjectList,
 					ArrayIndex: 0,
 				},
@@ -38,7 +38,7 @@ func (c *client) objectListLen(dev btypes.Device) (int, error) {
 func (c *client) objectsRange(dev btypes.Device, start, end int) ([]btypes.Object, error) {
 	rpm := btypes.MultiplePropertyData{
 		Objects: []btypes.Object{
-			btypes.Object{
+			{
 				ID: dev.ID,
 			},
 		},
@@ -135,11 +135,11 @@ func (c *client) objectInformation(dev *btypes.Device, objs []btypes.Object) err
 		rpm.Objects = append(rpm.Objects, btypes.Object{
 			ID: o.ID,
 			Properties: []btypes.Property{
-				btypes.Property{
+				{
 					Type:       btypes.PropObjectName,
 					ArrayIndex: btypes.ArrayAll,
 				},
-				btypes.Property{
+				{
 					Type:       btypes.PropDescription,
 					ArrayIndex: btypes.ArrayAll,
 				},

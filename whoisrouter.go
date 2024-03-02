@@ -38,10 +38,11 @@ func (c *client) WhoIsRouterToNetwork() (resp *[]btypes.Address) {
 	values, err := c.utsm.Subscribe(1, 65534) //65534 is the max number a network can be
 	if err != nil {
 		fmt.Println(`err`, err)
+		return
 	}
 	err = <-errChan
 	if err != nil {
-
+		return
 	}
 	var list []btypes.Address
 	for _, addresses := range values {
@@ -49,9 +50,7 @@ func (c *client) WhoIsRouterToNetwork() (resp *[]btypes.Address) {
 		if !ok {
 			continue
 		}
-		for _, addr := range r {
-			list = append(list, addr)
-		}
+		list = append(list, r...)
 	}
 	return &list
 
