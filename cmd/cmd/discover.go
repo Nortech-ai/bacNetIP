@@ -30,7 +30,7 @@ var discoverCmd = &cobra.Command{
 func save(outfile string, stdout bool, results interface{}) error {
 	var file *os.File
 	var err error
-	if printStdout {
+	if stdout {
 		file = os.Stdout
 	} else {
 		file, err = os.Create(outfile)
@@ -142,7 +142,7 @@ func discover(cmd *cobra.Command, args []string) {
 	if err != nil {
 		log.Errorf("unable to save document: %v", err)
 	}
-	delta := time.Now().Sub(start)
+	delta := time.Since(start)
 	log.Infof("Discovery completed in %s", delta)
 	if !printStdout {
 		log.Infof("Results saved in %s", output)

@@ -61,7 +61,7 @@ func readMulti(cmd *cobra.Command, args []string) {
 				Instance: btypes.ObjectInstance(deviceID),
 			},
 			Properties: []btypes.Property{
-				btypes.Property{
+				{
 					Type:       btypes.PropMaxAPDU,
 					ArrayIndex: bacnet.ArrayAll,
 				},
@@ -92,7 +92,7 @@ func readMulti(cmd *cobra.Command, args []string) {
 				Instance: btypes.ObjectInstance(deviceID),
 			},
 			Properties: []btypes.Property{
-				btypes.Property{
+				{
 					Type:       btypes.PropObjectList,
 					ArrayIndex: bacnet.ArrayAll,
 				},
@@ -110,7 +110,7 @@ func readMulti(cmd *cobra.Command, args []string) {
 	rpm := btypes.MultiplePropertyData{}
 
 	rpm.Objects = []btypes.Object{
-		btypes.Object{
+		{
 			ID: btypes.ObjectID{
 				Type:     btypes.AnalogOutput,
 				Instance: 1,
@@ -122,7 +122,7 @@ func readMulti(cmd *cobra.Command, args []string) {
 				},
 			},
 		},
-		btypes.Object{
+		{
 			ID: btypes.ObjectID{
 				Type:     btypes.AnalogOutput,
 				Instance: 1,
@@ -134,7 +134,7 @@ func readMulti(cmd *cobra.Command, args []string) {
 				},
 			},
 		},
-		btypes.Object{
+		{
 			ID: btypes.ObjectID{
 				Type:     btypes.AnalogOutput,
 				Instance: 2,
@@ -146,7 +146,7 @@ func readMulti(cmd *cobra.Command, args []string) {
 				},
 			},
 		},
-		btypes.Object{
+		{
 			ID: btypes.ObjectID{
 				Type:     btypes.AnalogOutput,
 				Instance: 2,
