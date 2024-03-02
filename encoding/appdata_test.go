@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/NubeDev/bacnet/btypes"
+	"github.com/ytuox/bacnet/btypes"
 )
 
 func subTestSimpleData(t *testing.T, d *Decoder, x interface{}) func(t *testing.T) {

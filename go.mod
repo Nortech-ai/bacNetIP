@@ -1,6 +1,6 @@
-module github.com/NubeDev/bacnet
+module github.com/ytuox/bacnet
 
-go 1.17
+go 1.22
 
 require (
 	github.com/kr/pretty v0.2.0

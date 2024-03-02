@@ -2,8 +2,9 @@ package network
 
 import (
 	"fmt"
-	"github.com/NubeDev/bacnet/btypes"
 	"testing"
+
+	"github.com/ytuox/bacnet/btypes"
 )
 
 func TestDevice_Write(t *testing.T) {

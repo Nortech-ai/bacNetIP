@@ -3,10 +3,11 @@ package bacnet
 import (
 	"context"
 	"fmt"
-	"github.com/NubeDev/bacnet/btypes"
 	"time"
 
-	"github.com/NubeDev/bacnet/encoding"
+	"github.com/ytuox/bacnet/btypes"
+
+	"github.com/ytuox/bacnet/encoding"
 )
 
 const maxReattempt = 2

@@ -2,8 +2,9 @@ package network
 
 import (
 	"errors"
-	"github.com/NubeDev/bacnet"
+
 	log "github.com/sirupsen/logrus"
+	"github.com/ytuox/bacnet"
 )
 
 type Network struct {

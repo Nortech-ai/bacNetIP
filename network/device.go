@@ -2,8 +2,9 @@ package network
 
 import (
 	"fmt"
-	"github.com/NubeDev/bacnet"
-	"github.com/NubeDev/bacnet/btypes"
+
+	"github.com/ytuox/bacnet"
+	"github.com/ytuox/bacnet/btypes"
 )
 
 type Device struct {

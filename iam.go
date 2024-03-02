@@ -1,8 +1,8 @@
 package bacnet
 
 import (
-	"github.com/NubeDev/bacnet/btypes"
-	"github.com/NubeDev/bacnet/encoding"
+	"github.com/ytuox/bacnet/btypes"
+	"github.com/ytuox/bacnet/encoding"
 )
 
 /*

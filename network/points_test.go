@@ -2,9 +2,10 @@ package network
 
 import (
 	"fmt"
-	"github.com/NubeDev/bacnet/btypes"
-	pprint "github.com/NubeDev/bacnet/helpers/print"
 	"testing"
+
+	"github.com/ytuox/bacnet/btypes"
+	pprint "github.com/ytuox/bacnet/helpers/print"
 )
 
 func TestPointDetails(t *testing.T) {

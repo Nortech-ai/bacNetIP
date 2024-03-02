@@ -5,12 +5,12 @@ import (
 	"reflect"
 	"strconv"
 
-	"github.com/NubeDev/bacnet"
-	"github.com/NubeDev/bacnet/btypes"
-	"github.com/NubeDev/bacnet/btypes/services"
-	pprint "github.com/NubeDev/bacnet/helpers/print"
-	"github.com/NubeDev/bacnet/network"
 	"github.com/spf13/cobra"
+	"github.com/ytuox/bacnet"
+	"github.com/ytuox/bacnet/btypes"
+	"github.com/ytuox/bacnet/btypes/services"
+	pprint "github.com/ytuox/bacnet/helpers/print"
+	"github.com/ytuox/bacnet/network"
 )
 
 // Flags
@@ -50,7 +50,7 @@ func readProp(cmd *cobra.Command, args []string) {
 		fmt.Println("ERR-client", err)
 		return
 	}
-	defer localDevice.NetworkClose()
+	defer localDevice.NetworkClose(true)
 	go localDevice.NetworkRun()
 
 	device, err := network.NewDevice(localDevice, &network.Device{Ip: deviceIP, DeviceID: deviceID, NetworkNumber: networkNumber, MacMSTP: deviceHardwareMac, MaxApdu: uint32(maxADPU), Segmentation: uint32(segmentation)})

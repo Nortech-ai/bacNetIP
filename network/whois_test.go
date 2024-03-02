@@ -2,10 +2,11 @@ package network
 
 import (
 	"fmt"
-	"github.com/NubeDev/bacnet"
-	pprint "github.com/NubeDev/bacnet/helpers/print"
-	"github.com/kr/pretty"
 	"testing"
+
+	"github.com/kr/pretty"
+	"github.com/ytuox/bacnet"
+	pprint "github.com/ytuox/bacnet/helpers/print"
 )
 
 func TestNetwork_Whois(t *testing.T) {

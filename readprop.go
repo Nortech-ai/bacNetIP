@@ -3,10 +3,11 @@ package bacnet
 import (
 	"context"
 	"fmt"
-	"github.com/NubeDev/bacnet/btypes"
-	"github.com/NubeDev/bacnet/encoding"
 	"log"
 	"time"
+
+	"github.com/ytuox/bacnet/btypes"
+	"github.com/ytuox/bacnet/encoding"
 )
 
 // ReadProperty reads a single property from a single object in the given device.

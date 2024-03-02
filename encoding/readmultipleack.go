@@ -2,7 +2,8 @@ package encoding
 
 import (
 	"fmt"
-	"github.com/NubeDev/bacnet/btypes"
+
+	"github.com/ytuox/bacnet/btypes"
 )
 
 func (e *Encoder) ReadMultiplePropertyAck(invokeID uint8, data btypes.MultiplePropertyData) error {

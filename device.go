@@ -2,17 +2,18 @@ package bacnet
 
 import (
 	"fmt"
-	"github.com/NubeDev/bacnet/btypes"
-	"github.com/NubeDev/bacnet/btypes/ndpu"
-	"github.com/NubeDev/bacnet/datalink"
-	"github.com/NubeDev/bacnet/encoding"
-	"github.com/NubeDev/bacnet/helpers/validation"
-	"github.com/NubeDev/bacnet/tsm"
-	"github.com/NubeDev/bacnet/utsm"
-	log "github.com/sirupsen/logrus"
 	"io"
 	"sync"
 	"time"
+
+	log "github.com/sirupsen/logrus"
+	"github.com/ytuox/bacnet/btypes"
+	"github.com/ytuox/bacnet/btypes/ndpu"
+	"github.com/ytuox/bacnet/datalink"
+	"github.com/ytuox/bacnet/encoding"
+	"github.com/ytuox/bacnet/helpers/validation"
+	"github.com/ytuox/bacnet/tsm"
+	"github.com/ytuox/bacnet/utsm"
 )
 
 const mtuHeaderLength = 4
@@ -62,7 +63,7 @@ func NewClient(cb *ClientBuilder) (Client, error) {
 	//check ip
 	ok := validation.ValidIP(ip)
 	if !ok {
-
+		return nil, fmt.Errorf("invalid ip")
 	}
 	//check port
 	if port == 0 {
@@ -70,7 +71,7 @@ func NewClient(cb *ClientBuilder) (Client, error) {
 	}
 	ok = validation.ValidPort(port)
 	if !ok {
-
+		return nil, fmt.Errorf("invalid port")
 	}
 	//check adpu
 	if maxPDU == 0 {
@@ -80,18 +81,18 @@ func NewClient(cb *ClientBuilder) (Client, error) {
 	if iface != "" {
 		dataLink, err = datalink.NewUDPDataLink(iface, port)
 		if err != nil {
-			//log.Fatal(err)
+			return nil, fmt.Errorf("invalid interfaceName")
 		}
 	} else {
 		//check subnet
 		sub := cb.SubnetCIDR
 		ok = validation.ValidCIDR(ip, sub)
 		if !ok {
-
+			return nil, fmt.Errorf("invalid ip or subnet cidr")
 		}
-		dataLink, err = datalink.NewUDPDataLinkFromIP(ip, port, sub)
+		dataLink, err = datalink.NewUDPDataLinkFromIP(ip, sub, port)
 		if err != nil {
-			//log.Fatal(err)
+			return nil, fmt.Errorf("invalid ip or subnet cidr or port")
 		}
 	}
 

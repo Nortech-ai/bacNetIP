@@ -2,10 +2,11 @@ package network
 
 import (
 	"fmt"
-	"github.com/NubeDev/bacnet"
-	"github.com/NubeDev/bacnet/btypes"
-	"github.com/NubeDev/bacnet/helpers/store"
+
 	"github.com/pkg/errors"
+	"github.com/ytuox/bacnet"
+	"github.com/ytuox/bacnet/btypes"
+	"github.com/ytuox/bacnet/helpers/store"
 )
 
 //var memDb *store.Handler
@@ -21,7 +22,7 @@ func NewStore() *Store {
 	return s
 }
 
-//NewNetwork updated a cached
+// NewNetwork updated a cached
 func (store *Store) NewNetwork(storeID, iface, ip string, port, subnet int) error {
 	cb := &bacnet.ClientBuilder{
 		Interface:  iface,
@@ -55,7 +56,7 @@ func (store *Store) GetNetwork(uuid string) (*Network, error) {
 	return parse, nil
 }
 
-//UpdateDevice updated a cached device
+// UpdateDevice updated a cached device
 func (store *Store) UpdateDevice(storeID string, net *Network, device *Device) error {
 	var err error
 	dev := &btypes.Device{

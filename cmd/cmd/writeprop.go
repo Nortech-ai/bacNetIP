@@ -2,13 +2,14 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/NubeDev/bacnet"
-	"github.com/NubeDev/bacnet/btypes"
-	"github.com/NubeDev/bacnet/btypes/null"
-	ip2bytes "github.com/NubeDev/bacnet/helpers/ipbytes"
+	"strconv"
+
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"strconv"
+	"github.com/ytuox/bacnet"
+	"github.com/ytuox/bacnet/btypes"
+	"github.com/ytuox/bacnet/btypes/null"
+	ip2bytes "github.com/ytuox/bacnet/helpers/ipbytes"
 )
 
 // write represents the write command

@@ -2,10 +2,11 @@ package network
 
 import (
 	"fmt"
-	"github.com/NubeDev/bacnet"
-	"github.com/NubeDev/bacnet/btypes"
-	"github.com/NubeDev/bacnet/btypes/null"
+
 	log "github.com/sirupsen/logrus"
+	"github.com/ytuox/bacnet"
+	"github.com/ytuox/bacnet/btypes"
+	"github.com/ytuox/bacnet/btypes/null"
 )
 
 type Write struct {

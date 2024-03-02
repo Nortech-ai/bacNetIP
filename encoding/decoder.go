@@ -3,7 +3,8 @@ package encoding
 import (
 	"bytes"
 	"encoding/binary"
-	"github.com/NubeDev/bacnet/btypes"
+
+	"github.com/ytuox/bacnet/btypes"
 )
 
 // Decoder used

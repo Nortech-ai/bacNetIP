@@ -1,10 +1,10 @@
 package network
 
 import (
-	"github.com/NubeDev/bacnet"
-	"github.com/NubeDev/bacnet/btypes"
-	"github.com/NubeDev/bacnet/helpers/data"
 	log "github.com/sirupsen/logrus"
+	"github.com/ytuox/bacnet"
+	"github.com/ytuox/bacnet/btypes"
+	"github.com/ytuox/bacnet/helpers/data"
 )
 
 func (device *Device) Whois(options *bacnet.WhoIsOpts) ([]btypes.Device, error) {

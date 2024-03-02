@@ -1,8 +1,8 @@
 package network
 
 import (
-	"github.com/NubeDev/bacnet/btypes"
 	log "github.com/sirupsen/logrus"
+	"github.com/ytuox/bacnet/btypes"
 )
 
 type Object struct {

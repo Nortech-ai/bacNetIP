@@ -3,11 +3,12 @@ package bacnet
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/NubeDev/bacnet/btypes"
-	"github.com/NubeDev/bacnet/datalink"
-	"github.com/NubeDev/bacnet/encoding"
 	"log"
 	"testing"
+
+	"github.com/ytuox/bacnet/btypes"
+	"github.com/ytuox/bacnet/datalink"
+	"github.com/ytuox/bacnet/encoding"
 )
 
 const interfaceName = "eth0"
@@ -85,7 +86,7 @@ func testReadPropertyService(c Client, t *testing.T) {
 
 func testWhoIs(c Client, t *testing.T) {
 	wh := &WhoIsOpts{
-		GlobalBroadcast: false,
+		GlobalBroadcast: true,
 		NetworkNumber:   0,
 	}
 	wh.Low = testServer - 1
@@ -184,7 +185,7 @@ func TestDeviceClient(t *testing.T) {
 		NetworkNumber:   0,
 	}
 	wh.Low = testServer - 1
-	wh.High = testServer - 1
+	wh.High = testServer + 1
 	devs, err := c.WhoIs(wh)
 	if err != nil {
 		fmt.Println(err)

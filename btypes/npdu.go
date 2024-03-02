@@ -1,6 +1,6 @@
 package btypes
 
-import "github.com/NubeDev/bacnet/btypes/ndpu"
+import "github.com/ytuox/bacnet/btypes/ndpu"
 
 type NPDUPriority byte
 

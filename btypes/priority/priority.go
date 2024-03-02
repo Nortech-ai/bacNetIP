@@ -1,10 +1,11 @@
 package priority
 
 import (
-	"github.com/NubeDev/bacnet/btypes"
-	"github.com/NubeDev/bacnet/helpers/data"
-	"github.com/NubeDev/bacnet/helpers/nils"
 	"reflect"
+
+	"github.com/ytuox/bacnet/btypes"
+	"github.com/ytuox/bacnet/helpers/data"
+	"github.com/ytuox/bacnet/helpers/nils"
 )
 
 func BuildFloat32(in btypes.PropertyData, objType btypes.ObjectType) (pri *Float32) {

@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/NubeDev/bacnet/btypes"
+	"github.com/ytuox/bacnet/btypes"
 )
 
 const compareErrFmt = "Mismatch in %s when decoding values. Expected: %d, received: %d"

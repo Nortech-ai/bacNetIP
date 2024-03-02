@@ -1,11 +1,11 @@
 package network
 
 import (
-	"github.com/NubeDev/bacnet"
-	"github.com/NubeDev/bacnet/btypes"
+	"github.com/ytuox/bacnet"
+	"github.com/ytuox/bacnet/btypes"
 )
 
-//ReadString to read a string like objectName
+// ReadString to read a string like objectName
 func (device *Device) ReadString(obj *Object) (string, error) {
 	read, err := device.Read(obj)
 	if err != nil {

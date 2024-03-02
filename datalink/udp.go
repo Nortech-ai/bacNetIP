@@ -2,9 +2,10 @@ package datalink
 
 import (
 	"fmt"
-	"github.com/NubeDev/bacnet/btypes"
 	"net"
 	"strings"
+
+	"github.com/ytuox/bacnet/btypes"
 )
 
 // DefaultPort that BacnetIP will use if a port is not given. Valid ports for
@@ -21,8 +22,8 @@ type udpDataLink struct {
 /*
 NewUDPDataLink returns udp listener
 pass in your iface port by name, see an alternative NewUDPDataLinkFromIP if you wish to pass in by ip and subnet
-	- inter: eth0
-	- addr: 47808
+  - inter: eth0
+  - addr: 47808
 */
 func NewUDPDataLink(inter string, port int) (link DataLink, err error) {
 	if port == 0 {
@@ -44,9 +45,9 @@ func NewUDPDataLink(inter string, port int) (link DataLink, err error) {
 
 /*
 NewUDPDataLinkFromIP returns udp listener
-	- addr: 192.168.15.10
-	- subNet: 24
-	- addr: 47808
+  - addr: 192.168.15.10
+  - subNet: 24
+  - addr: 47808
 */
 func NewUDPDataLinkFromIP(addr string, subNet, port int) (link DataLink, err error) {
 	addr = fmt.Sprintf("%s/%d", addr, subNet)

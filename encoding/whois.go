@@ -1,7 +1,7 @@
 package encoding
 
 import (
-	"github.com/NubeDev/bacnet/btypes"
+	"github.com/ytuox/bacnet/btypes"
 )
 
 func (e *Encoder) WhoIs(low, high int32) error {

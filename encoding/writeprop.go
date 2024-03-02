@@ -1,7 +1,7 @@
 package encoding
 
 import (
-	"github.com/NubeDev/bacnet/btypes"
+	"github.com/ytuox/bacnet/btypes"
 )
 
 // WriteProperty encodes a write request
@@ -39,7 +39,7 @@ func (e *Encoder) WriteProperty(invokeID uint8, data btypes.PropertyData) error 
 	return e.Error()
 }
 
-//pointTypeBOBV if point type is bv or bo then we need to set the data type to enum
+// pointTypeBOBV if point type is bv or bo then we need to set the data type to enum
 func pointTypeBOBV(data btypes.PropertyData) (isBool bool) {
 	pointType := data.Object.ID.Type
 	property := 0

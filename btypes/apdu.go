@@ -2,7 +2,8 @@ package btypes
 
 import (
 	"fmt"
-	"github.com/NubeDev/bacnet/btypes/bacerr"
+
+	"github.com/ytuox/bacnet/btypes/bacerr"
 )
 
 /*

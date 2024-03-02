@@ -3,7 +3,8 @@ package encoding
 import (
 	"bytes"
 	"encoding/binary"
-	"github.com/NubeDev/bacnet/btypes"
+
+	"github.com/ytuox/bacnet/btypes"
 )
 
 var EncodingEndian binary.ByteOrder = binary.BigEndian
@@ -55,7 +56,7 @@ func (e *Encoder) closingTag(num uint8) {
 	e.tagNum(meta, num)
 }
 
-//tagNum pre-tags
+// tagNum pre-tags
 func (e *Encoder) tagNum(meta tagMeta, num uint8) {
 	t := uint8(meta)
 	if num <= 14 {
@@ -114,8 +115,11 @@ func (e *Encoder) tag(tg tagInfo) {
 	}
 }
 
-/* from clause 20.2.14 Encoding of an Object Identifier Value
-returns the number of apdu bytes consumed */
+/*
+	from clause 20.2.14 Encoding of an Object Identifier Value
+
+returns the number of apdu bytes consumed
+*/
 func (e *Encoder) objectId(objectType btypes.ObjectType, instance btypes.ObjectInstance) {
 	var value uint32
 	value = ((uint32(objectType) & MaxObject) << InstanceBits) | (uint32(instance) & MaxInstance)

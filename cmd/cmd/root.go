@@ -2,10 +2,11 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/NubeDev/bacnet/helpers/homedir"
+	"os"
+
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"os"
+	"github.com/ytuox/bacnet/helpers/homedir"
 )
 
 var cfgFile string

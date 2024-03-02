@@ -1,7 +1,7 @@
 package datalink
 
 import (
-	"github.com/NubeDev/bacnet/btypes"
+	"github.com/ytuox/bacnet/btypes"
 )
 
 type DataLink interface {
