@@ -7,13 +7,13 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
-	"github.com/ytuox/bacnet/btypes"
-	"github.com/ytuox/bacnet/btypes/ndpu"
-	"github.com/ytuox/bacnet/datalink"
-	"github.com/ytuox/bacnet/encoding"
-	"github.com/ytuox/bacnet/helpers/validation"
-	"github.com/ytuox/bacnet/tsm"
-	"github.com/ytuox/bacnet/utsm"
+	"github.com/Nortech-ai/bacNetIP/btypes"
+	"github.com/Nortech-ai/bacNetIP/btypes/ndpu"
+	"github.com/Nortech-ai/bacNetIP/datalink"
+	"github.com/Nortech-ai/bacNetIP/encoding"
+	"github.com/Nortech-ai/bacNetIP/helpers/validation"
+	"github.com/Nortech-ai/bacNetIP/tsm"
+	"github.com/Nortech-ai/bacNetIP/utsm"
 )
 
 const mtuHeaderLength = 4

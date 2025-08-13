@@ -3,7 +3,7 @@ package bacnet
 import (
 	"fmt"
 
-	"github.com/ytuox/bacnet/btypes"
+	"github.com/Nortech-ai/bacNetIP/btypes"
 )
 
 func (c *client) objectListLen(dev btypes.Device) (int, error) {

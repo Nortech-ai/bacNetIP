@@ -3,8 +3,8 @@ package encoding
 import (
 	"fmt"
 
-	"github.com/ytuox/bacnet/btypes"
-	"github.com/ytuox/bacnet/btypes/null"
+	"github.com/Nortech-ai/bacNetIP/btypes"
+	"github.com/Nortech-ai/bacNetIP/btypes/null"
 )
 
 const (

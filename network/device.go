@@ -3,8 +3,8 @@ package network
 import (
 	"fmt"
 
-	"github.com/ytuox/bacnet"
-	"github.com/ytuox/bacnet/btypes"
+	"github.com/Nortech-ai/bacNetIP"
+	"github.com/Nortech-ai/bacNetIP/btypes"
 )
 
 type Device struct {

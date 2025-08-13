@@ -3,9 +3,9 @@ package network
 import (
 	"fmt"
 
-	pprint "github.com/ytuox/bacnet/helpers/print"
+	pprint "github.com/Nortech-ai/bacNetIP/helpers/print"
 
-	//"github.com/ytuox/bacnet"
+	//"github.com/Nortech-ai/bacNetIP"
 
 	"testing"
 )

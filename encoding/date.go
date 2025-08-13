@@ -1,6 +1,6 @@
 package encoding
 
-import "github.com/ytuox/bacnet/btypes"
+import "github.com/Nortech-ai/bacNetIP/btypes"
 
 // epochYear is an increment to all non-stored values. This year is chosen in
 // the standard. Why? No idea. God help us all if bacnet hits the 255 + 1990

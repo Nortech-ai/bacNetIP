@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 
-	"github.com/ytuox/bacnet/btypes"
+	"github.com/Nortech-ai/bacNetIP/btypes"
 )
 
 var EncodingEndian binary.ByteOrder = binary.BigEndian

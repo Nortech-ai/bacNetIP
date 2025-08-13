@@ -6,7 +6,7 @@ import (
 	"os"
 	"testing"
 
-	pprint "github.com/ytuox/bacnet/helpers/print"
+	pprint "github.com/Nortech-ai/bacNetIP/helpers/print"
 )
 
 var iface = "enp0s31f6"

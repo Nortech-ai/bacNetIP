@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ytuox/bacnet/btypes"
+	"github.com/Nortech-ai/bacNetIP/btypes"
 
-	"github.com/ytuox/bacnet/encoding"
+	"github.com/Nortech-ai/bacNetIP/encoding"
 )
 
 const maxReattempt = 2

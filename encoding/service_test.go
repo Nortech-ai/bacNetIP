@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	pprint "github.com/ytuox/bacnet/helpers/print"
+	pprint "github.com/Nortech-ai/bacNetIP/helpers/print"
 
-	"github.com/ytuox/bacnet/btypes"
+	"github.com/Nortech-ai/bacNetIP/btypes"
 )
 
 func TestReadPropertyService(t *testing.T) {

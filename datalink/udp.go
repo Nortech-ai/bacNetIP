@@ -5,7 +5,7 @@ import (
 	"net"
 	"strings"
 
-	"github.com/ytuox/bacnet/btypes"
+	"github.com/Nortech-ai/bacNetIP/btypes"
 )
 
 // DefaultPort that BacnetIP will use if a port is not given. Valid ports for

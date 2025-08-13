@@ -3,9 +3,9 @@ package priority
 import (
 	"reflect"
 
-	"github.com/ytuox/bacnet/btypes"
-	"github.com/ytuox/bacnet/helpers/data"
-	"github.com/ytuox/bacnet/helpers/nils"
+	"github.com/Nortech-ai/bacNetIP/btypes"
+	"github.com/Nortech-ai/bacNetIP/helpers/data"
+	"github.com/Nortech-ai/bacNetIP/helpers/nils"
 )
 
 func BuildFloat32(in btypes.PropertyData, objType btypes.ObjectType) (pri *Float32) {

@@ -6,11 +6,11 @@ import (
 	"strconv"
 
 	"github.com/spf13/cobra"
-	"github.com/ytuox/bacnet"
-	"github.com/ytuox/bacnet/btypes"
-	"github.com/ytuox/bacnet/btypes/services"
-	pprint "github.com/ytuox/bacnet/helpers/print"
-	"github.com/ytuox/bacnet/network"
+	"github.com/Nortech-ai/bacNetIP"
+	"github.com/Nortech-ai/bacNetIP/btypes"
+	"github.com/Nortech-ai/bacNetIP/btypes/services"
+	pprint "github.com/Nortech-ai/bacNetIP/helpers/print"
+	"github.com/Nortech-ai/bacNetIP/network"
 )
 
 // Flags

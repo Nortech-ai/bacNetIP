@@ -3,9 +3,9 @@ package encoding
 import (
 	"fmt"
 
-	"github.com/ytuox/bacnet/btypes/bacerr"
+	"github.com/Nortech-ai/bacNetIP/btypes/bacerr"
 
-	"github.com/ytuox/bacnet/btypes"
+	"github.com/Nortech-ai/bacNetIP/btypes"
 )
 
 func (e *Encoder) APDU(a btypes.APDU) error {

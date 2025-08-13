@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/ytuox/bacnet/btypes"
-	pprint "github.com/ytuox/bacnet/helpers/print"
+	"github.com/Nortech-ai/bacNetIP/btypes"
+	pprint "github.com/Nortech-ai/bacNetIP/helpers/print"
 )
 
 func TestPointDetails(t *testing.T) {

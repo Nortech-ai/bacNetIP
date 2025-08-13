@@ -1,7 +1,7 @@
 package encoding
 
 import (
-	"github.com/ytuox/bacnet/btypes"
+	"github.com/Nortech-ai/bacNetIP/btypes"
 )
 
 func (e *Encoder) ReadMultipleProperty(invokeID uint8, data btypes.MultiplePropertyData) error {

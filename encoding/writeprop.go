@@ -1,7 +1,7 @@
 package encoding
 
 import (
-	"github.com/ytuox/bacnet/btypes"
+	"github.com/Nortech-ai/bacNetIP/btypes"
 )
 
 // WriteProperty encodes a write request

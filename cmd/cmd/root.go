@@ -6,7 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.com/ytuox/bacnet/helpers/homedir"
+	"github.com/Nortech-ai/bacNetIP/helpers/homedir"
 )
 
 var cfgFile string

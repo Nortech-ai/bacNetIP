@@ -2,9 +2,9 @@ package network
 
 import (
 	log "github.com/sirupsen/logrus"
-	"github.com/ytuox/bacnet"
-	"github.com/ytuox/bacnet/btypes"
-	"github.com/ytuox/bacnet/helpers/data"
+	"github.com/Nortech-ai/bacNetIP"
+	"github.com/Nortech-ai/bacNetIP/btypes"
+	"github.com/Nortech-ai/bacNetIP/helpers/data"
 )
 
 func (device *Device) Whois(options *bacnet.WhoIsOpts) ([]btypes.Device, error) {

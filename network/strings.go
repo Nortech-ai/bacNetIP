@@ -1,8 +1,8 @@
 package network
 
 import (
-	"github.com/ytuox/bacnet"
-	"github.com/ytuox/bacnet/btypes"
+	"github.com/Nortech-ai/bacNetIP"
+	"github.com/Nortech-ai/bacNetIP/btypes"
 )
 
 // ReadString to read a string like objectName

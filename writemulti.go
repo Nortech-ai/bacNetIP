@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ytuox/bacnet/btypes"
-	"github.com/ytuox/bacnet/encoding"
+	"github.com/Nortech-ai/bacNetIP/btypes"
+	"github.com/Nortech-ai/bacNetIP/encoding"
 )
 
 func (c *client) WriteMultiProperty(dev btypes.Device, wp btypes.MultiplePropertyData) error {

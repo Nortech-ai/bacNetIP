@@ -1,8 +1,8 @@
 package bacnet
 
 import (
-	"github.com/ytuox/bacnet/btypes"
-	"github.com/ytuox/bacnet/encoding"
+	"github.com/Nortech-ai/bacNetIP/btypes"
+	"github.com/Nortech-ai/bacNetIP/encoding"
 )
 
 type WhoIsOpts struct {

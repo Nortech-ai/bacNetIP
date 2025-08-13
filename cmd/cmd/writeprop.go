@@ -6,10 +6,10 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"github.com/ytuox/bacnet"
-	"github.com/ytuox/bacnet/btypes"
-	"github.com/ytuox/bacnet/btypes/null"
-	ip2bytes "github.com/ytuox/bacnet/helpers/ipbytes"
+	"github.com/Nortech-ai/bacNetIP"
+	"github.com/Nortech-ai/bacNetIP/btypes"
+	"github.com/Nortech-ai/bacNetIP/btypes/null"
+	ip2bytes "github.com/Nortech-ai/bacNetIP/helpers/ipbytes"
 )
 
 // write represents the write command

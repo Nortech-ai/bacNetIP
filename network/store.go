@@ -4,9 +4,9 @@ import (
 	"fmt"
 
 	"github.com/pkg/errors"
-	"github.com/ytuox/bacnet"
-	"github.com/ytuox/bacnet/btypes"
-	"github.com/ytuox/bacnet/helpers/store"
+	"github.com/Nortech-ai/bacNetIP"
+	"github.com/Nortech-ai/bacNetIP/btypes"
+	"github.com/Nortech-ai/bacNetIP/helpers/store"
 )
 
 //var memDb *store.Handler

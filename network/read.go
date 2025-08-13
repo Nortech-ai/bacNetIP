@@ -2,7 +2,7 @@ package network
 
 import (
 	log "github.com/sirupsen/logrus"
-	"github.com/ytuox/bacnet/btypes"
+	"github.com/Nortech-ai/bacNetIP/btypes"
 )
 
 type Object struct {

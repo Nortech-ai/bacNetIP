@@ -1,4 +1,4 @@
-module github.com/ytuox/bacnet
+module github.com/Nortech-ai/bacNetIP
 
 go 1.22
 

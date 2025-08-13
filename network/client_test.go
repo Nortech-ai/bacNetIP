@@ -3,11 +3,11 @@ package network
 import (
 	"fmt"
 
-	"github.com/ytuox/bacnet"
-	"github.com/ytuox/bacnet/btypes"
-	segmentation2 "github.com/ytuox/bacnet/btypes/segmentation"
+	"github.com/Nortech-ai/bacNetIP"
+	"github.com/Nortech-ai/bacNetIP/btypes"
+	segmentation2 "github.com/Nortech-ai/bacNetIP/btypes/segmentation"
 
-	//"github.com/ytuox/bacnet"
+	//"github.com/Nortech-ai/bacNetIP"
 
 	"testing"
 )

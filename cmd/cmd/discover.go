@@ -8,8 +8,8 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"github.com/ytuox/bacnet"
-	"github.com/ytuox/bacnet/btypes"
+	"github.com/Nortech-ai/bacNetIP"
+	"github.com/Nortech-ai/bacNetIP/btypes"
 )
 
 var runDiscover bool

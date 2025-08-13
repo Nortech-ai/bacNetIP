@@ -4,7 +4,7 @@ import (
 	"errors"
 
 	log "github.com/sirupsen/logrus"
-	"github.com/ytuox/bacnet"
+	"github.com/Nortech-ai/bacNetIP"
 )
 
 type Network struct {

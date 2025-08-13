@@ -6,8 +6,8 @@ import (
 	"log"
 	"time"
 
-	"github.com/ytuox/bacnet/btypes"
-	"github.com/ytuox/bacnet/encoding"
+	"github.com/Nortech-ai/bacNetIP/btypes"
+	"github.com/Nortech-ai/bacNetIP/encoding"
 )
 
 // ReadProperty reads a single property from a single object in the given device.

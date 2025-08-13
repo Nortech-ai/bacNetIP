@@ -3,9 +3,9 @@ package bacnet
 import (
 	"fmt"
 
-	"github.com/ytuox/bacnet/btypes"
-	"github.com/ytuox/bacnet/btypes/ndpu"
-	"github.com/ytuox/bacnet/encoding"
+	"github.com/Nortech-ai/bacNetIP/btypes"
+	"github.com/Nortech-ai/bacNetIP/btypes/ndpu"
+	"github.com/Nortech-ai/bacNetIP/encoding"
 )
 
 /*

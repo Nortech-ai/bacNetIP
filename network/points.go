@@ -3,11 +3,11 @@ package network
 import (
 	"errors"
 
-	"github.com/ytuox/bacnet"
-	"github.com/ytuox/bacnet/btypes"
-	"github.com/ytuox/bacnet/btypes/priority"
-	"github.com/ytuox/bacnet/btypes/units"
-	"github.com/ytuox/bacnet/helpers/data"
+	"github.com/Nortech-ai/bacNetIP"
+	"github.com/Nortech-ai/bacNetIP/btypes"
+	"github.com/Nortech-ai/bacNetIP/btypes/priority"
+	"github.com/Nortech-ai/bacNetIP/btypes/units"
+	"github.com/Nortech-ai/bacNetIP/helpers/data"
 )
 
 type Point struct {

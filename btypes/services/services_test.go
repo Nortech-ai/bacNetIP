@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	pprint "github.com/ytuox/bacnet/helpers/print"
+	pprint "github.com/Nortech-ai/bacNetIP/helpers/print"
 )
 
 func TestSupported(t *testing.T) {

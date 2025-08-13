@@ -3,7 +3,7 @@ package btypes
 import (
 	"fmt"
 
-	"github.com/ytuox/bacnet/btypes/bacerr"
+	"github.com/Nortech-ai/bacNetIP/btypes/bacerr"
 )
 
 /*

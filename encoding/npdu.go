@@ -1,8 +1,8 @@
 package encoding
 
 import (
-	"github.com/ytuox/bacnet/btypes"
-	"github.com/ytuox/bacnet/btypes/ndpu"
+	"github.com/Nortech-ai/bacNetIP/btypes"
+	"github.com/Nortech-ai/bacNetIP/btypes/ndpu"
 )
 
 //https://github.com/bacnet-stack/bacnet-stack/blob/master/src/bacnet/npdu.c#L391
