@@ -140,7 +140,7 @@ func (c *client) objectInformation(dev *btypes.Device, objs []btypes.Object) err
 					ArrayIndex: btypes.ArrayAll,
 				},
 				{
-					Type:       btypes.PropDescription,
+					Type:       btypes.PropObjectType,
 					ArrayIndex: btypes.ArrayAll,
 				},
 			},
@@ -151,20 +151,22 @@ func (c *client) objectInformation(dev *btypes.Device, objs []btypes.Object) err
 	if err != nil {
 		return fmt.Errorf("unable to read multiple property :%v", err)
 	}
-	var name, description string
+	var name string
+	var objectType uint32
 	var ok bool
 	for i, r := range resp.Objects {
 		name, ok = r.Properties[0].Data.(string)
 		if !ok {
 			return fmt.Errorf("expecting string got %T", r.Properties[0].Data)
 		}
-		description, ok = r.Properties[1].Data.(string)
+		objectType, ok = r.Properties[1].Data.(uint32)
 		if !ok {
 			return fmt.Errorf("expecting string got %T", r.Properties[1].Data)
 		}
 		obj := dev.Objects[keys[i].Type][keys[i].Instance]
 		obj.Name = name
-		obj.Description = description
+		obj.ID.Type = btypes.ObjectType(objectType)
+		fmt.Println("objectType", obj.ID.Type)
 		dev.Objects[keys[i].Type][keys[i].Instance] = obj
 	}
 	return nil
