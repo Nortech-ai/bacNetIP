@@ -6,7 +6,6 @@ import (
 	"sync"
 	"time"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/Nortech-ai/bacNetIP/btypes"
 	"github.com/Nortech-ai/bacNetIP/btypes/ndpu"
 	"github.com/Nortech-ai/bacNetIP/datalink"
@@ -14,6 +13,7 @@ import (
 	"github.com/Nortech-ai/bacNetIP/helpers/validation"
 	"github.com/Nortech-ai/bacNetIP/tsm"
 	"github.com/Nortech-ai/bacNetIP/utsm"
+	log "github.com/sirupsen/logrus"
 )
 
 const mtuHeaderLength = 4
@@ -50,6 +50,7 @@ type ClientBuilder struct {
 	Port       int
 	SubnetCIDR int
 	MaxPDU     uint16
+	LogLevel   *log.Level
 }
 
 // NewClient creates a new client with the given interface and
@@ -98,7 +99,11 @@ func NewClient(cb *ClientBuilder) (Client, error) {
 
 	l := log.New()
 	l.Formatter = &log.TextFormatter{}
-	l.SetLevel(log.DebugLevel)
+	if cb.LogLevel != nil {
+		l.SetLevel(*cb.LogLevel)
+	} else {
+		l.SetLevel(log.DebugLevel)
+	}
 
 	cli := &client{
 		dataLink: dataLink,
