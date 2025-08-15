@@ -166,7 +166,6 @@ func (c *client) objectInformation(dev *btypes.Device, objs []btypes.Object) err
 		obj := dev.Objects[keys[i].Type][keys[i].Instance]
 		obj.Name = name
 		obj.ID.Type = btypes.ObjectType(objectType)
-		fmt.Println("objectType", obj.ID.Type)
 		dev.Objects[keys[i].Type][keys[i].Instance] = obj
 	}
 	return nil
