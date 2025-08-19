@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/Nortech-ai/bacNetIP/btypes"
+	"github.com/Nortech-ai/bacNetIP/btypes/bacerr"
 )
 
 func (e *Encoder) ReadMultiplePropertyAck(invokeID uint8, data btypes.MultiplePropertyData) error {
@@ -232,7 +233,10 @@ func (d *Decoder) objectsWithData(objects *[]btypes.Object) error {
 				if tag == 5 && meta.isClosing() {
 					//
 				}
-				return fmt.Errorf("class %d code %d", class, code)
+				prop := btypes.Property{}
+				prop.Data = fmt.Errorf("object %s: class %s code %s", obj.ID.String(), bacerr.ErrorCode(class).String(), bacerr.ErrorCode(code).String())
+				obj.Properties = append(obj.Properties, prop)
+				tag, meta, length = d.tagNumberAndValue()
 			} else {
 				return &ErrorIncorrectTag{Expected: 4, Given: tag}
 			}
