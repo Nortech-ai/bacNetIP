@@ -51,6 +51,7 @@ type ClientBuilder struct {
 	SubnetCIDR int
 	MaxPDU     uint16
 	LogLevel   *log.Level
+	UsePcap    bool
 }
 
 // NewClient creates a new client with the given interface and
@@ -79,7 +80,12 @@ func NewClient(cb *ClientBuilder) (Client, error) {
 		maxPDU = btypes.MaxAPDU
 	}
 	//build datalink
-	if iface != "" {
+	if cb.UsePcap {
+		dataLink, err = datalink.NewPcapDataLink(iface, port)
+		if err != nil {
+			return nil, fmt.Errorf("invalid interfaceName")
+		}
+	} else if iface != "" {
 		dataLink, err = datalink.NewUDPDataLink(iface, port)
 		if err != nil {
 			return nil, fmt.Errorf("invalid interfaceName")
