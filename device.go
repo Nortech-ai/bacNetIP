@@ -44,14 +44,15 @@ type client struct {
 }
 
 type ClientBuilder struct {
-	DataLink   datalink.DataLink
-	Interface  string
-	Ip         string
-	Port       int
-	SubnetCIDR int
-	MaxPDU     uint16
-	LogLevel   *log.Level
-	UsePcap    bool
+	DataLink          datalink.DataLink
+	Interface         string
+	Ip                string
+	Port              int
+	SubnetCIDR        int
+	MaxPDU            uint16
+	LogLevel          *log.Level
+	UsePcap           bool
+	PcapListenTimeout time.Duration
 }
 
 // NewClient creates a new client with the given interface and
@@ -81,7 +82,7 @@ func NewClient(cb *ClientBuilder) (Client, error) {
 	}
 	//build datalink
 	if cb.UsePcap {
-		dataLink, err = datalink.NewPcapDataLink(iface, port)
+		dataLink, err = datalink.NewPcapDataLink(iface, port, cb.PcapListenTimeout)
 		if err != nil {
 			return nil, fmt.Errorf("invalid interfaceName")
 		}

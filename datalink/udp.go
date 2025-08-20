@@ -4,11 +4,12 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"time"
 
 	"github.com/Nortech-ai/bacNetIP/btypes"
 	"github.com/gopacket/gopacket"
 	"github.com/gopacket/gopacket/layers"
-	"github.com/gopacket/gopacket/pcap"
+	pcap "github.com/packetcap/go-pcap"
 )
 
 // DefaultPort that BacnetIP will use if a port is not given. Valid ports for
@@ -52,13 +53,17 @@ func NewUDPDataLink(inter string, port int) (link DataLink, err error) {
 	return link, nil
 }
 
-func NewPcapDataLink(inter string, port int) (link DataLink, err error) {
+func NewPcapDataLink(inter string, port int, timeout time.Duration) (link DataLink, err error) {
 	if port == 0 {
 		port = DefaultPort
 	}
 
+	if timeout == 0 {
+		timeout = time.Second * 60
+	}
+
 	// Open pcap handle for the interface
-	handle, err := pcap.OpenLive(inter, 1600, true, pcap.BlockForever)
+	handle, err := pcap.OpenLive(inter, 1600, true, timeout, true)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open pcap handle: %w", err)
 	}
