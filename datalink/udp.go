@@ -219,24 +219,32 @@ func (c *pcapDataLink) Receive(data []byte) (*btypes.Address, int, error) {
 	}
 
 	parsedPacket := gopacket.NewPacket(packetData, layers.LayerTypeEthernet, gopacket.NoCopy)
+
 	ipLayer := parsedPacket.Layer(layers.LayerTypeIPv4)
+	if ipLayer == nil {
+		return nil, 0, fmt.Errorf("no ip layer found")
+	}
+
 	udpLayer := parsedPacket.Layer(layers.LayerTypeUDP)
+	if udpLayer == nil {
+		return nil, 0, fmt.Errorf("no udp layer found")
+	}
 
 	// Copy packet data to the provided buffer
 	n := copy(data, udpLayer.LayerPayload())
-	srcAddr := &net.UDPAddr{}
-	if ipLayer != nil {
-		ip, _ := ipLayer.(*layers.IPv4)
-		srcAddr = &net.UDPAddr{
-			IP:   ip.SrcIP,
-			Port: int(udpLayer.(*layers.UDP).SrcPort),
-		}
-		adr := UDPToAddress(srcAddr)
-		return adr, n, nil
+
+	// Capture the address from the ip layer
+	ip, ok := ipLayer.(*layers.IPv4)
+	if !ok {
+		return nil, 0, fmt.Errorf("ip layer is not a ipv4 layer")
 	}
 
-	err = fmt.Errorf("no ip layer found")
-	return nil, 0, err
+	srcAddr := &net.UDPAddr{
+		IP:   ip.SrcIP,
+		Port: int(udpLayer.(*layers.UDP).SrcPort),
+	}
+	adr := UDPToAddress(srcAddr)
+	return adr, n, nil
 }
 
 // IPPortToAddress converts a given udp address into a bacnet address
