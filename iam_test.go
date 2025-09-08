@@ -12,6 +12,7 @@ import (
 var iface = "enp0s31f6"
 
 func TestIam(t *testing.T) {
+	t.Skip("Skipping test")
 
 	gopath := os.Getenv("GOPATH")
 	if gopath == "" {

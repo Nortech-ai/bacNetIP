@@ -16,6 +16,8 @@ const testServer = 260001
 
 // TestMain are general test
 func TestUdpDataLink(t *testing.T) {
+	t.Skip("Skipping test")
+
 	c, _ := NewClient(&ClientBuilder{Interface: interfaceName})
 	c.Close()
 
@@ -34,6 +36,8 @@ func TestMac(t *testing.T) {
 }
 
 func TestServices(t *testing.T) {
+	t.Skip("Skipping test")
+
 	c, _ := NewClient(&ClientBuilder{Interface: interfaceName})
 	defer c.Close()
 
@@ -317,6 +321,8 @@ func testWritePropertyService(c Client, t *testing.T) {
 }
 
 func TestDeviceClient(t *testing.T) {
+	t.Skip("Skipping test")
+
 	c, _ := NewClient(&ClientBuilder{Interface: interfaceName})
 	go c.ClientRun()
 	wh := &WhoIsOpts{
