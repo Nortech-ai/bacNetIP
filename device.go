@@ -81,7 +81,9 @@ func NewClient(cb *ClientBuilder) (Client, error) {
 		maxPDU = btypes.MaxAPDU
 	}
 	//build datalink
-	if cb.UsePcap {
+	if cb.DataLink != nil {
+		dataLink = cb.DataLink
+	} else if cb.UsePcap {
 		dataLink, err = datalink.NewPcapDataLink(iface, port, cb.PcapListenTimeout)
 		if err != nil {
 			return nil, fmt.Errorf("invalid interfaceName")
