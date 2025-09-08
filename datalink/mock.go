@@ -13,8 +13,9 @@ type SentMessage struct {
 }
 
 type ReceivedMessage struct {
-	Data []byte
-	Src  *btypes.Address
+	Data  []byte
+	Src   *btypes.Address
+	Error error
 }
 
 type MockDataLink struct {
@@ -64,7 +65,7 @@ func (m *MockDataLink) Receive(data []byte) (*btypes.Address, int, error) {
 	m.Received = m.Received[1:]
 
 	copy(data, received.Data)
-	return received.Src, len(received.Data), nil
+	return received.Src, len(received.Data), received.Error
 }
 
 func (m *MockDataLink) Close() error {

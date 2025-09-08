@@ -130,15 +130,23 @@ func NewClient(cb *ClientBuilder) (Client, error) {
 }
 
 func (c *client) ClientRun() {
-	var err error = nil
-	for err == nil {
+	for {
 		b := c.readBufferPool.Get().([]byte)
 		var addr *btypes.Address
 		var n int
-		addr, n, err = c.dataLink.Receive(b)
+		addr, n, err := c.dataLink.Receive(b)
+
+		// If the data link is closed, return
+		if err == io.EOF {
+			c.log.Error(fmt.Errorf("data link closed: %w", err))
+			return
+		}
+
+		// Otherwise if we got an unknown error, continue
 		if err != nil {
 			continue
 		}
+
 		go c.handleMsg(addr, b[:n])
 	}
 }
