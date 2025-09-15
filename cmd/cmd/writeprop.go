@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"strconv"
 
-	log "github.com/sirupsen/logrus"
-	"github.com/spf13/cobra"
-	"github.com/Nortech-ai/bacNetIP"
+	bacnet "github.com/Nortech-ai/bacNetIP"
 	"github.com/Nortech-ai/bacNetIP/btypes"
 	"github.com/Nortech-ai/bacNetIP/btypes/null"
 	ip2bytes "github.com/Nortech-ai/bacNetIP/helpers/ipbytes"
+	log "github.com/sirupsen/logrus"
+	"github.com/spf13/cobra"
 )
 
 // write represents the write command
@@ -122,7 +122,7 @@ func writeProp(cmd *cobra.Command, args []string) {
 				{
 					Type:       propInt,
 					ArrayIndex: arrayIndex,
-					Priority:   btypes.NPDUPriority(priority),
+					Priority:   btypes.PropertyPriority(priority),
 				},
 			},
 		},

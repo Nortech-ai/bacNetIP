@@ -625,11 +625,34 @@ func IsDeviceProperty(id PropertyType) bool {
 	return ok
 }
 
+type PropertyPriority uint8
+
+const (
+	// Property Priority levels (1-16) for BACnet property writes
+	// Lower numbers = higher priority (1 is highest, 16 is lowest)
+	PropertyPriorityManualLifeSafety    PropertyPriority = 1
+	PropertyPriorityAutomaticLifeSafety PropertyPriority = 2
+	PropertyPriorityCriticalEquipment   PropertyPriority = 3
+	PropertyPriorityManualOperator      PropertyPriority = 4
+	PropertyPriorityAutomaticOperator   PropertyPriority = 5
+	PropertyPriorityManualSupervisor    PropertyPriority = 6
+	PropertyPriorityAutomaticSupervisor PropertyPriority = 7
+	PropertyPriorityManualOperator2     PropertyPriority = 8
+	PropertyPriorityAutomaticOperator2  PropertyPriority = 9
+	PropertyPriorityManualOperator3     PropertyPriority = 10
+	PropertyPriorityAutomaticOperator3  PropertyPriority = 11
+	PropertyPriorityManualOperator4     PropertyPriority = 12
+	PropertyPriorityAutomaticOperator4  PropertyPriority = 13
+	PropertyPriorityManualOperator5     PropertyPriority = 14
+	PropertyPriorityAutomaticOperator5  PropertyPriority = 15
+	PropertyPriorityNone                PropertyPriority = 16
+)
+
 type Property struct {
 	Type       PropertyType
 	ArrayIndex uint32
 	Data       interface{}
-	Priority   NPDUPriority
+	Priority   PropertyPriority
 }
 
 type PropertyData struct {
