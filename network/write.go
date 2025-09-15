@@ -3,10 +3,10 @@ package network
 import (
 	"fmt"
 
-	log "github.com/sirupsen/logrus"
-	"github.com/Nortech-ai/bacNetIP"
+	bacnet "github.com/Nortech-ai/bacNetIP"
 	"github.com/Nortech-ai/bacNetIP/btypes"
 	"github.com/Nortech-ai/bacNetIP/btypes/null"
+	log "github.com/sirupsen/logrus"
 )
 
 type Write struct {
@@ -32,7 +32,7 @@ func (device *Device) Write(write *Write) error {
 				{
 					Type:       write.Prop,
 					ArrayIndex: bacnet.ArrayAll,
-					Priority:   btypes.NPDUPriority(write.WritePriority),
+					Priority:   btypes.PropertyPriority(write.WritePriority),
 				},
 			},
 		},

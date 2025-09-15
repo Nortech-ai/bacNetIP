@@ -33,7 +33,7 @@ func (e *Encoder) WriteProperty(invokeID uint8, data btypes.PropertyData) error 
 	tagID++
 	// Tag 4 - Optional priority tag
 	// Priority set
-	if prop.Priority != btypes.Normal {
+	if prop.Priority != btypes.PropertyPriorityNone {
 		e.contextUnsigned(tagID, uint32(prop.Priority))
 	}
 	return e.Error()

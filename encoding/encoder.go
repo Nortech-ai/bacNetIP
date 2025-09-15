@@ -196,7 +196,7 @@ func (e *Encoder) properties(properties []btypes.Property, write bool) error {
 			e.AppData(prop.Data, false)
 			// Tag 2 - Closing Tag
 			e.closingTag(tag)
-			if prop.Priority != btypes.Normal {
+			if prop.Priority != btypes.PropertyPriorityNone {
 				e.contextUnsigned(tag, uint32(prop.Priority))
 			}
 		}

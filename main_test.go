@@ -134,7 +134,7 @@ func TestMain(t *testing.T) {
 				{
 					Type:       btypes.PropPresentValue, // Present value
 					ArrayIndex: ArrayAll,
-					Priority:   btypes.Normal,
+					Priority:   btypes.PropertyPriorityNone,
 					Data:       float32(1),
 				},
 			},
@@ -265,7 +265,7 @@ func testWritePropertyService(c Client, t *testing.T) {
 				{
 					Type:       btypes.PropObjectName, // Present value
 					ArrayIndex: ArrayAll,
-					Priority:   btypes.Normal,
+					Priority:   btypes.PropertyPriorityNone,
 				},
 			},
 		},
