@@ -1,6 +1,7 @@
 package datalink
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"strings"
@@ -63,7 +64,7 @@ func NewPcapDataLink(inter string, port int, timeout time.Duration) (link DataLi
 	}
 
 	// Open pcap handle for the interface
-	handle, err := pcap.OpenLive(inter, 1600, true, timeout, true)
+	handle, err := pcap.OpenLive(context.Background(), inter, 1600, true, timeout, true)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open pcap handle: %w", err)
 	}
