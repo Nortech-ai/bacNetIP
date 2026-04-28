@@ -226,25 +226,29 @@ func (c *client) handleMsg(src *btypes.Address, b []byte) {
 			}
 		case btypes.SimpleAck:
 			c.log.Debug("Received Simple Ack")
-			err := c.tsm.Send(int(apdu.InvokeId), send)
+			// Route by invoke-id and expected source to avoid cross-device misdelivery.
+			err := c.tsm.SendFrom(src, int(apdu.InvokeId), send)
 			if err != nil {
+				c.log.WithError(err).Debugf("unable to deliver simple ack invoke-id=%d", apdu.InvokeId)
 				return
 			}
 		case btypes.ComplexAck:
 			c.log.Debug("Received Complex Ack")
-			err := c.tsm.Send(int(apdu.InvokeId), send)
+			err := c.tsm.SendFrom(src, int(apdu.InvokeId), send)
 			if err != nil {
+				c.log.WithError(err).Debugf("unable to deliver complex ack invoke-id=%d", apdu.InvokeId)
 				return
 			}
 		case btypes.ConfirmedServiceRequest:
 			c.log.Debug("Received  Confirmed Service Request")
-			err := c.tsm.Send(int(apdu.InvokeId), send)
+			err := c.tsm.SendFrom(src, int(apdu.InvokeId), send)
 			if err != nil {
+				c.log.WithError(err).Debugf("unable to deliver confirmed service request invoke-id=%d", apdu.InvokeId)
 				return
 			}
 		case btypes.Error:
 			err := fmt.Errorf("error class %s code %s", apdu.Error.Class.String(), apdu.Error.Code.String())
-			err = c.tsm.Send(int(apdu.InvokeId), err)
+			err = c.tsm.SendFrom(src, int(apdu.InvokeId), err)
 			if err != nil {
 				c.log.Debugf("unable to Send error to %d: %v", apdu.InvokeId, err)
 			}

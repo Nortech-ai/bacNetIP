@@ -21,6 +21,9 @@ func (c *client) ReadProperty(device btypes.Device, rp btypes.PropertyData) (bty
 	defer c.tsm.Put(id)
 	enc := encoding.NewEncoder()
 	device.Addr.SetLength()
+	if err := c.tsm.ExpectSource(id, &device.Addr); err != nil {
+		return btypes.PropertyData{}, fmt.Errorf("unable to set response source for transaction id %d: %w", id, err)
+	}
 	npdu := &btypes.NPDU{
 		Version:               btypes.ProtocolVersion,
 		Destination:           &device.Addr,

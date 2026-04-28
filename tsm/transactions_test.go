@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 	"time"
+
+	"github.com/Nortech-ai/bacNetIP/btypes"
 )
 
 func TestTSM(t *testing.T) {
@@ -96,4 +98,75 @@ func TestDataTransaction(t *testing.T) {
 		return
 	}
 	t.Log(s)
+}
+
+func TestSourceCorrelation(t *testing.T) {
+	tsm := New(1)
+	id, err := tsm.ID(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tsm.Put(id)
+
+	expected := &btypes.Address{
+		Net:    1,
+		Len:    1,
+		MacLen: 1,
+		Mac:    []uint8{1},
+		Adr:    []uint8{1},
+	}
+	if err := tsm.ExpectSource(id, expected); err != nil {
+		t.Fatal(err)
+	}
+
+	mismatch := &btypes.Address{
+		Net:    2,
+		Len:    1,
+		MacLen: 1,
+		Mac:    []uint8{2},
+		Adr:    []uint8{2},
+	}
+	if err := tsm.SendFrom(mismatch, id, "bad"); err == nil {
+		t.Fatal("expected source mismatch error")
+	}
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		if err := tsm.SendFrom(expected, id, "ok"); err != nil {
+			t.Errorf("send with expected source failed: %v", err)
+		}
+	}()
+
+	got, err := tsm.Receive(id, time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "ok" {
+		t.Fatalf("expected ok, got %v", got)
+	}
+	<-done
+}
+
+func TestSourceCorrelationFallback(t *testing.T) {
+	tsm := New(1)
+	id, err := tsm.ID(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tsm.Put(id)
+
+	go func() {
+		if sendErr := tsm.Send(id, "fallback"); sendErr != nil {
+			t.Errorf("send failed: %v", sendErr)
+		}
+	}()
+
+	got, err := tsm.Receive(id, time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "fallback" {
+		t.Fatalf("expected fallback, got %v", got)
+	}
 }
