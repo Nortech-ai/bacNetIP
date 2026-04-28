@@ -2,6 +2,7 @@ package bacnet
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/Nortech-ai/bacNetIP/btypes"
 )
@@ -21,18 +22,13 @@ func (c *client) objectListLen(dev btypes.Device) (int, error) {
 
 	resp, err := c.ReadProperty(dev, rp)
 	if err != nil {
-		return 0, fmt.Errorf("reading property failed: %v", err)
+		return 0, fmt.Errorf("reading property failed for device %d: %w", dev.ID.Instance, err)
 	}
 
 	if len(resp.Object.Properties) == 0 {
-		return 0, fmt.Errorf("no data was returned")
+		return 0, fmt.Errorf("no data was returned for device %d object-list length", dev.ID.Instance)
 	}
-
-	data, ok := resp.Object.Properties[0].Data.(uint32)
-	if !ok {
-		return 0, fmt.Errorf("unable to get object length")
-	}
-	return int(data), nil
+	return extractObjectListLength(dev.ID, resp.Object.Properties)
 }
 
 func (c *client) objectsRange(dev btypes.Device, start, end int) ([]btypes.Object, error) {
@@ -52,23 +48,12 @@ func (c *client) objectsRange(dev btypes.Device, start, end int) ([]btypes.Objec
 	}
 	resp, err := c.ReadMultiProperty(dev, rpm)
 	if err != nil {
-		return nil, fmt.Errorf("unable to read multiple properties: %v", err)
+		return nil, fmt.Errorf("unable to read multiple properties for device %d range %d-%d: %w", dev.ID.Instance, start, end, err)
 	}
 	if len(resp.Objects) == 0 {
-		return nil, fmt.Errorf("no data was returned")
+		return nil, fmt.Errorf("no data was returned for device %d object-list range %d-%d", dev.ID.Instance, start, end)
 	}
-
-	objs := make([]btypes.Object, len(resp.Objects[0].Properties))
-
-	for i, prop := range resp.Objects[0].Properties {
-		id, ok := prop.Data.(btypes.ObjectID)
-		if !ok {
-			return nil, fmt.Errorf("expected type Object ID, got %T", prop.Data)
-		}
-		objs[i].ID = id
-	}
-
-	return objs, nil
+	return extractObjectIDsForRange(dev.ID, start, end, resp.Objects[0].Properties)
 }
 
 const readPropRequestSize = 20
@@ -93,6 +78,9 @@ func (c *client) objectList(dev *btypes.Device) error {
 
 	// Scan size is broken
 	scanSize := int(dev.MaxApdu) / readPropRequestSize
+	if scanSize < 1 {
+		scanSize = 1
+	}
 	i := 0
 	for i = 0; i < l/scanSize; i++ {
 		start := i*scanSize + 1
@@ -120,8 +108,7 @@ func (c *client) objectInformation(dev *btypes.Device, objs []btypes.Object) err
 	// Often times the map will re-arrange the order it spits out,
 	// so we need to keep track since the response will be in the
 	// same order we issue the commands.
-	keys := make([]btypes.ObjectID, len(objs))
-	counter := 0
+	var keys []btypes.ObjectID
 	rpm := btypes.MultiplePropertyData{
 		Objects: []btypes.Object{},
 	}
@@ -130,8 +117,7 @@ func (c *client) objectInformation(dev *btypes.Device, objs []btypes.Object) err
 		if o.ID.Type > maxStandardBacnetType {
 			continue
 		}
-		keys[counter] = o.ID
-		counter++
+		keys = append(keys, o.ID)
 		rpm.Objects = append(rpm.Objects, btypes.Object{
 			ID: o.ID,
 			Properties: []btypes.Property{
@@ -149,23 +135,19 @@ func (c *client) objectInformation(dev *btypes.Device, objs []btypes.Object) err
 	}
 	resp, err := c.ReadMultiProperty(*dev, rpm)
 	if err != nil {
-		return fmt.Errorf("unable to read multiple property :%v", err)
+		return fmt.Errorf("unable to read multiple property for device %d: %w", dev.ID.Instance, err)
 	}
-	var name string
-	var objectType uint32
-	var ok bool
 	for i, r := range resp.Objects {
-		name, ok = r.Properties[0].Data.(string)
-		if !ok {
-			return fmt.Errorf("expecting string got %T", r.Properties[0].Data)
+		if i >= len(keys) {
+			return fmt.Errorf("response object index %d exceeds requested objects (%d) for device %d", i, len(keys), dev.ID.Instance)
 		}
-		objectType, ok = r.Properties[1].Data.(uint32)
-		if !ok {
-			return fmt.Errorf("expecting string got %T", r.Properties[1].Data)
+		name, objectType, err := extractObjectMetadata(dev.ID, keys[i], r.Properties)
+		if err != nil {
+			return err
 		}
 		obj := dev.Objects[keys[i].Type][keys[i].Instance]
 		obj.Name = name
-		obj.ID.Type = btypes.ObjectType(objectType)
+		obj.ID.Type = objectType
 		dev.Objects[keys[i].Type][keys[i].Instance] = obj
 	}
 	return nil
@@ -202,4 +184,152 @@ func (c *client) Objects(dev btypes.Device) (btypes.Device, error) {
 		return dev, fmt.Errorf("unable to get object's information: %v", err)
 	}
 	return dev, nil
+}
+
+func extractObjectListLength(devID btypes.ObjectID, props []btypes.Property) (int, error) {
+	for _, p := range props {
+		if p.Type != btypes.PropObjectList || p.ArrayIndex != 0 {
+			continue
+		}
+		n, ok := unsignedFromPropertyData(p.Data)
+		if !ok {
+			return 0, fmt.Errorf("device %d property %d[%d]: expected unsigned list length got %T", devID.Instance, p.Type, p.ArrayIndex, p.Data)
+		}
+		return int(n), nil
+	}
+	return 0, fmt.Errorf("device %d missing object-list length property", devID.Instance)
+}
+
+func extractObjectIDsForRange(devID btypes.ObjectID, start, end int, props []btypes.Property) ([]btypes.Object, error) {
+	if start > end {
+		return nil, fmt.Errorf("invalid range start=%d end=%d for device %d", start, end, devID.Instance)
+	}
+	expectedCount := end - start + 1
+	indexed := make(map[int]btypes.ObjectID, expectedCount)
+	sequential := make([]btypes.ObjectID, 0, expectedCount)
+	hasIndexed := false
+
+	for _, p := range props {
+		if p.Type != btypes.PropObjectList {
+			continue
+		}
+		id, ok := p.Data.(btypes.ObjectID)
+		if !ok {
+			return nil, fmt.Errorf("device %d property %d[%d]: expected %T got %T", devID.Instance, p.Type, p.ArrayIndex, btypes.ObjectID{}, p.Data)
+		}
+
+		idx := int(p.ArrayIndex)
+		if idx >= start && idx <= end {
+			// Prefer explicit indexed responses when devices include ArrayIndex.
+			hasIndexed = true
+			if _, exists := indexed[idx]; exists {
+				return nil, fmt.Errorf("device %d duplicate object-list index %d in range %d-%d", devID.Instance, idx, start, end)
+			}
+			indexed[idx] = id
+			continue
+		}
+		sequential = append(sequential, id)
+	}
+
+	ids := make([]btypes.ObjectID, 0, expectedCount)
+	if hasIndexed {
+		// Rebuild in request order so callers see deterministic object ordering.
+		for idx := start; idx <= end; idx++ {
+			id, ok := indexed[idx]
+			if !ok {
+				return nil, fmt.Errorf("device %d missing object-list index %d in range %d-%d", devID.Instance, idx, start, end)
+			}
+			ids = append(ids, id)
+		}
+	} else {
+		// Some devices/gateways omit index metadata; accept strict sequential payloads.
+		if len(sequential) != expectedCount {
+			return nil, fmt.Errorf("device %d object-list range %d-%d expected %d entries got %d", devID.Instance, start, end, expectedCount, len(sequential))
+		}
+		ids = append(ids, sequential...)
+	}
+
+	objs := make([]btypes.Object, len(ids))
+	for i, id := range ids {
+		objs[i].ID = id
+	}
+	return objs, nil
+}
+
+func extractObjectMetadata(devID, requestedID btypes.ObjectID, props []btypes.Property) (string, btypes.ObjectType, error) {
+	var (
+		name      string
+		objectTyp btypes.ObjectType
+		nameOK    bool
+		typeOK    bool
+	)
+
+	for _, p := range props {
+		switch p.Type {
+		case btypes.PropObjectName:
+			v, ok := p.Data.(string)
+			if !ok {
+				return "", 0, fmt.Errorf("device %d object %s property %d: expected string got %T", devID.Instance, requestedID.String(), p.Type, p.Data)
+			}
+			name = v
+			nameOK = true
+		case btypes.PropObjectType:
+			switch v := p.Data.(type) {
+			case uint32:
+				// Many devices encode object type as uint32 even though model uses ObjectType.
+				objectTyp = btypes.ObjectType(v)
+				typeOK = true
+			case btypes.ObjectType:
+				objectTyp = v
+				typeOK = true
+			default:
+				if ot, ok := unsignedFromPropertyData(v); ok {
+					objectTyp = btypes.ObjectType(ot)
+					typeOK = true
+				} else {
+					return "", 0, fmt.Errorf("device %d object %s property %d: expected uint32 or ObjectType got %T", devID.Instance, requestedID.String(), p.Type, p.Data)
+				}
+			}
+		}
+	}
+
+	if !nameOK || !typeOK {
+		// Require both fields before mutating stored object metadata.
+		return "", 0, fmt.Errorf("device %d object %s missing required metadata (name=%t objectType=%t)", devID.Instance, requestedID.String(), nameOK, typeOK)
+	}
+	return name, objectTyp, nil
+}
+
+// unsignedFromPropertyData coerces BACnet values that occasionally arrive as
+// float32/float64 (or narrower integers) into uint32 without broadening scope
+// elsewhere in decoding.
+func unsignedFromPropertyData(data interface{}) (uint32, bool) {
+	switch v := data.(type) {
+	case uint32:
+		return v, true
+	case uint16:
+		return uint32(v), true
+	case uint8:
+		return uint32(v), true
+	case int32:
+		if v >= 0 {
+			return uint32(v), true
+		}
+	case int:
+		if v >= 0 && uint64(v) <= math.MaxUint32 {
+			return uint32(v), true
+		}
+	case float64:
+		if v == float64(uint32(v)) && v >= 0 && v <= float64(^uint32(0)) {
+			return uint32(v), true
+		}
+	case float32:
+		vf := float64(v)
+		if vf == float64(uint32(vf)) && vf >= 0 && vf <= float64(^uint32(0)) {
+			return uint32(v), true
+		}
+	default:
+		return 0, false
+	}
+	return 0, false
 }
