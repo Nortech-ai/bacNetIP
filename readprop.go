@@ -3,6 +3,7 @@ package bacnet
 import (
 	"context"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/Nortech-ai/bacNetIP/btypes"
@@ -34,21 +35,20 @@ func (c *client) ReadProperty(device btypes.Device, rp btypes.PropertyData) (bty
 	if enc.Error() != nil || err != nil {
 		return btypes.PropertyData{}, err
 	}
-	var lastErr error
-	for range retryCount {
+	// the value filled doesn't matter. it just needs to be non nil
+	err = fmt.Errorf("go")
+	for count := 0; err != nil && count < retryCount; count++ {
 		var b []byte
 		var out btypes.PropertyData
 		_, err = c.Send(device.Addr, npdu, enc.Bytes(), nil)
 		if err != nil {
-			lastErr = fmt.Errorf("send read property request: %w", err)
-			c.log.WithError(lastErr).Debug("read property send failed")
+			log.Print(err)
 			continue
 		}
 
 		var raw interface{}
 		raw, err = c.tsm.Receive(id, time.Duration(5)*time.Second)
 		if err != nil {
-			lastErr = fmt.Errorf("receive read property response: %w", err)
 			continue
 		}
 		switch v := raw.(type) {
@@ -63,25 +63,16 @@ func (c *client) ReadProperty(device btypes.Device, rp btypes.PropertyData) (bty
 
 		var apdu btypes.APDU
 		if err = dec.APDU(&apdu); err != nil {
-			lastErr = fmt.Errorf("decode apdu: %w", err)
 			continue
 		}
 		if apdu.Error.Class != 0 || apdu.Error.Code != 0 {
-			lastErr = fmt.Errorf("received error, class: %d, code: %d", apdu.Error.Class, apdu.Error.Code)
+			err = fmt.Errorf("received error, class: %d, code: %d", apdu.Error.Class, apdu.Error.Code)
 			continue
 		}
 		if err = dec.ReadProperty(&out); err != nil {
-			lastErr = fmt.Errorf("decode read property response: %w", err)
 			continue
 		}
-		if err = dec.Error(); err != nil {
-			lastErr = fmt.Errorf("decode read property response: %w", err)
-			continue
-		}
-		return out, nil
+		return out, dec.Error()
 	}
-	if lastErr == nil {
-		lastErr = fmt.Errorf("read property failed after %d retries", retryCount)
-	}
-	return btypes.PropertyData{}, lastErr
+	return btypes.PropertyData{}, err
 }

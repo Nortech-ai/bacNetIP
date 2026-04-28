@@ -49,6 +49,8 @@ func TestIAm(t *testing.T) {
 	assert.NoError(t, err)
 	defer c.Close()
 
+	go c.ClientRun()
+
 	device := btypes.Device{
 		ID: btypes.ObjectID{
 			Type:     btypes.DeviceType,
@@ -73,8 +75,6 @@ func TestIAm(t *testing.T) {
 			Src:  &device.Addr,
 		},
 	}
-
-	go c.ClientRun()
 
 	// Send a WhoIs
 	devices, err := c.WhoIs(&WhoIsOpts{

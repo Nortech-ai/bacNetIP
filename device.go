@@ -40,22 +40,19 @@ type client struct {
 	tsm            *tsm.TSM
 	utsm           *utsm.Manager
 	readBufferPool sync.Pool
-	handleMsgSlots chan struct{}
-	lastReceiveErr time.Time
 	log            *log.Logger
 }
 
 type ClientBuilder struct {
-	DataLink                datalink.DataLink
-	Interface               string
-	Ip                      string
-	Port                    int
-	SubnetCIDR              int
-	MaxPDU                  uint16
-	MaxHandleMsgConcurrency int
-	LogLevel                *log.Level
-	UsePcap                 bool
-	PcapListenTimeout       time.Duration
+	DataLink          datalink.DataLink
+	Interface         string
+	Ip                string
+	Port              int
+	SubnetCIDR        int
+	MaxPDU            uint16
+	LogLevel          *log.Level
+	UsePcap           bool
+	PcapListenTimeout time.Duration
 }
 
 // NewClient creates a new client with the given interface and
@@ -117,11 +114,6 @@ func NewClient(cb *ClientBuilder) (Client, error) {
 		l.SetLevel(log.DebugLevel)
 	}
 
-	var handleMsgSlots chan struct{}
-	if cb.MaxHandleMsgConcurrency > 0 {
-		handleMsgSlots = make(chan struct{}, cb.MaxHandleMsgConcurrency)
-	}
-
 	cli := &client{
 		dataLink: dataLink,
 		tsm:      tsm.New(defaultStateSize),
@@ -132,8 +124,7 @@ func NewClient(cb *ClientBuilder) (Client, error) {
 		readBufferPool: sync.Pool{New: func() interface{} {
 			return make([]byte, maxPDU)
 		}},
-		handleMsgSlots: handleMsgSlots,
-		log:            l,
+		log: l,
 	}
 	return cli, err
 }
@@ -147,34 +138,16 @@ func (c *client) ClientRun() {
 
 		// If the data link is closed, return
 		if err == io.EOF {
-			c.readBufferPool.Put(b)
 			c.log.Error(fmt.Errorf("data link closed: %w", err))
 			return
 		}
 
 		// Otherwise if we got an unknown error, continue
 		if err != nil {
-			c.readBufferPool.Put(b)
-			now := time.Now()
-			if now.Sub(c.lastReceiveErr) >= time.Second {
-				c.lastReceiveErr = now
-				c.log.WithError(err).Debug("data link receive failed")
-			}
 			continue
 		}
 
-		if c.handleMsgSlots != nil {
-			c.handleMsgSlots <- struct{}{}
-		}
-		go func(src *btypes.Address, full []byte, payloadLen int) {
-			defer c.readBufferPool.Put(full)
-			if c.handleMsgSlots != nil {
-				defer func() {
-					<-c.handleMsgSlots
-				}()
-			}
-			c.handleMsg(src, full[:payloadLen])
-		}(addr, b, n)
+		go c.handleMsg(addr, b[:n])
 	}
 }
 

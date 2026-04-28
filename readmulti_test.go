@@ -19,6 +19,8 @@ func TestReadMultiProperty(t *testing.T) {
 	assert.NoError(t, err)
 	defer c.Close()
 
+	go c.ClientRun()
+
 	device := btypes.Device{
 		ID: btypes.ObjectID{
 			Type:     btypes.DeviceType,
@@ -55,8 +57,6 @@ func TestReadMultiProperty(t *testing.T) {
 			Src:  &device.Addr,
 		},
 	}
-
-	go c.ClientRun()
 
 	props, err := c.ReadMultiProperty(device, rp)
 	assert.NoError(t, err)
