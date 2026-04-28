@@ -201,11 +201,11 @@ func (c *client) handleMsg(src *btypes.Address, b []byte) {
 
 				if npdu.Source != nil {
 					if npdu.Source.Net > 0 { // add in device network number
-						log.Println("device-network-address", npdu.Source.Net)
+						c.log.Debug("device-network-address", npdu.Source.Net)
 						iam.Addr.Net = npdu.Source.Net
 					}
 					if len(npdu.Source.Adr) > 0 { // add in hardware mac
-						log.Println("device-mstp-mac-address", npdu.Source.Adr)
+						c.log.Debug("device-mstp-mac-address", npdu.Source.Adr)
 						iam.Addr.Adr = npdu.Source.Adr
 					}
 				}
