@@ -59,8 +59,8 @@ func (c *client) WhoIs(wh *WhoIsOpts) ([]btypes.Device, error) {
 	// Run in parallel
 	errChan := make(chan error)
 	go func() {
-		_, err = c.Send(dest, npdu, enc.Bytes(), nil)
-		errChan <- err
+		_, sendErr := c.Send(dest, npdu, enc.Bytes(), nil)
+		errChan <- sendErr
 	}()
 	values, err := c.utsm.Subscribe(start, end)
 	if err != nil {

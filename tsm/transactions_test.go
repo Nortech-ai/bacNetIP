@@ -72,17 +72,13 @@ func TestDataTransaction(t *testing.T) {
 	for _, id := range ids {
 		msg := expected[id]
 
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			if sendErr := tsm.Send(id, msg); sendErr != nil {
 				errCh <- fmt.Errorf("send %d: %w", id, sendErr)
 			}
-		}()
+		})
 
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			b, recvErr := tsm.Receive(id, 5*time.Second)
 			if recvErr != nil {
 				errCh <- fmt.Errorf("receive %d: %w", id, recvErr)
@@ -95,7 +91,7 @@ func TestDataTransaction(t *testing.T) {
 				return
 			}
 			recvCh <- s
-		}()
+		})
 	}
 
 	wg.Wait()
