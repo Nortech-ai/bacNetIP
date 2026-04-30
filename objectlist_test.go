@@ -31,11 +31,12 @@ func TestExtractObjectMetadata(t *testing.T) {
 			},
 		},
 		{
-			name: "object type encoded as float32 (gateway quirk)",
+			name: "object type as float32 rejected",
 			props: []btypes.Property{
 				{Type: btypes.PropObjectType, Data: float32(btypes.AnalogInput)},
 				{Type: btypes.PropObjectName, Data: "AI-1"},
 			},
+			wantErr: true,
 		},
 		{
 			name: "missing object name",
@@ -133,15 +134,34 @@ func TestExtractObjectIDsForRange(t *testing.T) {
 func TestExtractObjectListLength(t *testing.T) {
 	devID := btypes.ObjectID{Type: btypes.DeviceType, Instance: 716}
 
-	t.Run("float32 coerced to length", func(t *testing.T) {
+	t.Run("uint32 list length", func(t *testing.T) {
 		n, err := extractObjectListLength(devID, []btypes.Property{
-			{Type: btypes.PropObjectList, ArrayIndex: 0, Data: float32(42)},
+			{Type: btypes.PropObjectList, ArrayIndex: 0, Data: uint32(42)},
 		})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 		if n != 42 {
 			t.Fatalf("expected 42 got %d", n)
+		}
+	})
+
+	t.Run("read property must return exactly one property", func(t *testing.T) {
+		_, err := extractObjectListLength(devID, []btypes.Property{
+			{Type: btypes.PropObjectList, ArrayIndex: 0, Data: uint32(1)},
+			{Type: btypes.PropObjectList, ArrayIndex: 0, Data: uint32(2)},
+		})
+		if err == nil {
+			t.Fatal("expected error")
+		}
+	})
+
+	t.Run("float32 list length rejected", func(t *testing.T) {
+		_, err := extractObjectListLength(devID, []btypes.Property{
+			{Type: btypes.PropObjectList, ArrayIndex: 0, Data: float32(42)},
+		})
+		if err == nil {
+			t.Fatal("expected error")
 		}
 	})
 
