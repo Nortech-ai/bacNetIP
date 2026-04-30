@@ -2,7 +2,6 @@ package bacnet
 
 import (
 	"fmt"
-	"math"
 
 	"github.com/Nortech-ai/bacNetIP/btypes"
 )
@@ -23,10 +22,6 @@ func (c *client) objectListLen(dev btypes.Device) (int, error) {
 	resp, err := c.ReadProperty(dev, rp)
 	if err != nil {
 		return 0, fmt.Errorf("reading property failed for device %d: %w", dev.ID.Instance, err)
-	}
-
-	if len(resp.Object.Properties) == 0 {
-		return 0, fmt.Errorf("no data was returned for device %d object-list length", dev.ID.Instance)
 	}
 	return extractObjectListLength(dev.ID, resp.Object.Properties)
 }
@@ -187,17 +182,18 @@ func (c *client) Objects(dev btypes.Device) (btypes.Device, error) {
 }
 
 func extractObjectListLength(devID btypes.ObjectID, props []btypes.Property) (int, error) {
-	for _, p := range props {
-		if p.Type != btypes.PropObjectList || p.ArrayIndex != 0 {
-			continue
-		}
-		n, ok := unsignedFromPropertyData(p.Data)
-		if !ok {
-			return 0, fmt.Errorf("device %d property %d[%d]: expected unsigned list length got %T", devID.Instance, p.Type, p.ArrayIndex, p.Data)
-		}
-		return int(n), nil
+	if len(props) != 1 {
+		return 0, fmt.Errorf("device %d read-property object-list length: expected 1 property got %d", devID.Instance, len(props))
 	}
-	return 0, fmt.Errorf("device %d missing object-list length property", devID.Instance)
+	p := props[0]
+	if p.Type != btypes.PropObjectList || p.ArrayIndex != 0 {
+		return 0, fmt.Errorf("device %d read-property object-list length: expected property %d array index 0 got property %d[%d]", devID.Instance, btypes.PropObjectList, p.Type, p.ArrayIndex)
+	}
+	data, ok := p.Data.(uint32)
+	if !ok {
+		return 0, fmt.Errorf("device %d property %d[%d]: expected uint32 list length got %T", devID.Instance, p.Type, p.ArrayIndex, p.Data)
+	}
+	return int(data), nil
 }
 
 func extractObjectIDsForRange(devID btypes.ObjectID, start, end int, props []btypes.Property) ([]btypes.Object, error) {
@@ -283,12 +279,7 @@ func extractObjectMetadata(devID, requestedID btypes.ObjectID, props []btypes.Pr
 				objectTyp = v
 				typeOK = true
 			default:
-				if ot, ok := unsignedFromPropertyData(v); ok {
-					objectTyp = btypes.ObjectType(ot)
-					typeOK = true
-				} else {
-					return "", 0, fmt.Errorf("device %d object %s property %d: expected uint32 or ObjectType got %T", devID.Instance, requestedID.String(), p.Type, p.Data)
-				}
+				return "", 0, fmt.Errorf("device %d object %s property %d: expected uint32 or ObjectType got %T", devID.Instance, requestedID.String(), p.Type, p.Data)
 			}
 		}
 	}
@@ -298,38 +289,4 @@ func extractObjectMetadata(devID, requestedID btypes.ObjectID, props []btypes.Pr
 		return "", 0, fmt.Errorf("device %d object %s missing required metadata (name=%t objectType=%t)", devID.Instance, requestedID.String(), nameOK, typeOK)
 	}
 	return name, objectTyp, nil
-}
-
-// unsignedFromPropertyData coerces BACnet values that occasionally arrive as
-// float32/float64 (or narrower integers) into uint32 without broadening scope
-// elsewhere in decoding.
-func unsignedFromPropertyData(data interface{}) (uint32, bool) {
-	switch v := data.(type) {
-	case uint32:
-		return v, true
-	case uint16:
-		return uint32(v), true
-	case uint8:
-		return uint32(v), true
-	case int32:
-		if v >= 0 {
-			return uint32(v), true
-		}
-	case int:
-		if v >= 0 && uint64(v) <= math.MaxUint32 {
-			return uint32(v), true
-		}
-	case float64:
-		if v == float64(uint32(v)) && v >= 0 && v <= float64(^uint32(0)) {
-			return uint32(v), true
-		}
-	case float32:
-		vf := float64(v)
-		if vf == float64(uint32(vf)) && vf >= 0 && vf <= float64(^uint32(0)) {
-			return uint32(v), true
-		}
-	default:
-		return 0, false
-	}
-	return 0, false
 }
