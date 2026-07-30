@@ -1,11 +1,11 @@
 module github.com/Nortech-ai/bacNetIP
 
-go 1.23.0
+go 1.24.0
 
 toolchain go1.24.6
 
 require (
-	github.com/gopacket/gopacket v1.4.0
+	github.com/gopacket/gopacket v1.6.1
 	github.com/kr/pretty v0.2.0
 	github.com/packetcap/go-pcap v0.0.0-20250723190045-d00b185f30b7
 	github.com/patrickmn/go-cache v2.1.0+incompatible
