@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"sync"
 	"time"
+
+	"github.com/Nortech-ai/bacNetIP/btypes"
 )
 
 // MaxTransaction is the default max number of transactions that can occur
@@ -21,6 +23,7 @@ type state struct {
 	state        int
 	requestTimer int
 	data         chan interface{}
+	source       *btypes.Address
 }
 
 // TSM is the transaction state manager. It handles passing data to other
@@ -65,6 +68,15 @@ func New(size int) *TSM {
 
 // Send data to invoked id
 func (t *TSM) Send(id int, b interface{}) error {
+	return t.send(nil, id, b)
+}
+
+// SendFrom sends data to invoked id while validating expected source, if set.
+func (t *TSM) SendFrom(src *btypes.Address, id int, b interface{}) error {
+	return t.send(src, id, b)
+}
+
+func (t *TSM) send(src *btypes.Address, id int, b interface{}) error {
 	t.mutex.Lock()
 	s, ok := t.states[id]
 	t.mutex.Unlock()
@@ -72,7 +84,39 @@ func (t *TSM) Send(id int, b interface{}) error {
 	if !ok {
 		return fmt.Errorf("id %d is not receiving", id)
 	}
+	if s.source != nil {
+		// Correlation guard: ignore/don't deliver payloads from unexpected sources.
+		if src == nil {
+			return fmt.Errorf("id %d source mismatch: expected source set but got nil", id)
+		}
+		if !addressMatches(s.source, src) {
+			return fmt.Errorf("id %d source mismatch: expected %+v got %+v", id, *s.source, *src)
+		}
+	}
 	s.data <- b
+	return nil
+}
+
+// ExpectSource configures source correlation for responses delivered to id.
+func (t *TSM) ExpectSource(id int, src *btypes.Address) error {
+	if src == nil {
+		return fmt.Errorf("nil source for id %d", id)
+	}
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+	s, ok := t.states[id]
+	if !ok {
+		return fmt.Errorf("id %d does not exist in the transactions", id)
+	}
+	// Store a defensive copy so later caller mutation does not change correlation.
+	srcCopy := *src
+	if src.Mac != nil {
+		srcCopy.Mac = append([]uint8(nil), src.Mac...)
+	}
+	if src.Adr != nil {
+		srcCopy.Adr = append([]uint8(nil), src.Adr...)
+	}
+	s.source = &srcCopy
 	return nil
 }
 
@@ -121,6 +165,7 @@ func (t *TSM) ID(ctx context.Context) (int, error) {
 	s.state = idle
 	s.requestTimer = 0 // TODO: apdu_timeout
 	s.data = make(chan interface{})
+	s.source = nil
 
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
@@ -144,4 +189,27 @@ func (t *TSM) Put(id int) error {
 	t.free.space <- struct{}{}
 	delete(t.states, id)
 	return nil
+}
+
+func addressMatches(expected, actual *btypes.Address) bool {
+	if expected == nil || actual == nil {
+		return expected == actual
+	}
+	if expected.Net != actual.Net || expected.Len != actual.Len || expected.MacLen != actual.MacLen {
+		return false
+	}
+	if len(expected.Mac) != len(actual.Mac) || len(expected.Adr) != len(actual.Adr) {
+		return false
+	}
+	for i := range expected.Mac {
+		if expected.Mac[i] != actual.Mac[i] {
+			return false
+		}
+	}
+	for i := range expected.Adr {
+		if expected.Adr[i] != actual.Adr[i] {
+			return false
+		}
+	}
+	return true
 }
