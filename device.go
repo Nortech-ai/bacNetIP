@@ -192,7 +192,8 @@ func (c *client) handleMsg(src *btypes.Address, b []byte) {
 		}
 		switch apdu.DataType {
 		case btypes.UnconfirmedServiceRequest:
-			if apdu.UnconfirmedService == btypes.ServiceUnconfirmedIAm {
+			switch apdu.UnconfirmedService {
+			case btypes.ServiceUnconfirmedIAm:
 				dec = encoding.NewDecoder(apdu.RawData)
 				var iam btypes.IAm
 				err = dec.IAm(&iam)
@@ -215,14 +216,17 @@ func (c *client) handleMsg(src *btypes.Address, b []byte) {
 				}
 
 				c.utsm.Publish(int(iam.ID.Instance), iam)
-			} else if apdu.UnconfirmedService == btypes.ServiceUnconfirmedWhoIs {
+			case btypes.ServiceUnconfirmedWhoIs:
 				dec := encoding.NewDecoder(apdu.RawData)
 				var low, high int32
 				dec.WhoIs(&low, &high)
 				// For now we are going to ignore who is request.
 				//log.WithFields(log.Fields{"low": low, "high": high}).Debug("WHO IS Request")
-			} else {
-				c.log.Errorf("Unconfirmed: %d %v", apdu.UnconfirmedService, apdu.RawData)
+			default:
+				// Foreign unconfirmed traffic on a shared BACnet/IP LAN (e.g. COV
+				// notifications from other clients' subscriptions, time sync) is
+				// expected when we only poll via ReadProperty. Do not treat as error.
+				c.log.Debugf("Ignoring unconfirmed service %d", apdu.UnconfirmedService)
 			}
 		case btypes.SimpleAck:
 			c.log.Debug("Received Simple Ack")
