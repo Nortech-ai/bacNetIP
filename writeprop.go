@@ -18,6 +18,9 @@ func (c *client) WriteProperty(device btypes.Device, wp btypes.PropertyData) err
 	}
 	defer c.tsm.Put(id)
 	device.Addr.SetLength()
+	if err := c.tsm.ExpectSource(id, &device.Addr); err != nil {
+		return fmt.Errorf("unable to set response source for transaction id %d: %w", id, err)
+	}
 	npdu := &btypes.NPDU{
 		Version:               btypes.ProtocolVersion,
 		Destination:           &device.Addr,

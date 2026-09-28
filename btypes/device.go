@@ -83,10 +83,16 @@ func NewDevice(device *Device) (*Device, error) {
 		fmt.Println("fail ip2bytes")
 		return nil, err
 	}
+	// Match datalink UDPToAddress shape: Mac + MacLen. Adr/Len only for routed
+	// devices so ExpectSource aligns with addressWithNPDUSource fold of replies.
 	addr := Address{
 		Net: uint16(device.NetworkNumber),
 		Mac: ip,
-		Adr: []uint8{uint8(device.MacMSTP)},
+	}
+	addr.SetBroadcast(false)
+	if device.NetworkNumber != 0 || device.MacMSTP != 0 {
+		addr.Adr = []uint8{uint8(device.MacMSTP)}
+		addr.SetLength()
 	}
 	object := ObjectID{
 		Type:     DeviceType,

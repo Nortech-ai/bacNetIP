@@ -17,6 +17,10 @@ func (c *client) WriteMultiProperty(dev btypes.Device, wp btypes.MultiplePropert
 		return fmt.Errorf("unable to get an transaction id: %v", err)
 	}
 	defer c.tsm.Put(id)
+	dev.Addr.SetLength()
+	if err := c.tsm.ExpectSource(id, &dev.Addr); err != nil {
+		return fmt.Errorf("unable to set response source for transaction id %d: %w", id, err)
+	}
 
 	npdu := &btypes.NPDU{
 		Version:               btypes.ProtocolVersion,

@@ -18,7 +18,7 @@ import (
 
 const mtuHeaderLength = 4
 const defaultStateSize = 20
-const forwardHeaderLength = 10
+const forwardedNPDUOriginLength = 6 // Annex J: original BACnet/IP address after BVLC
 
 type Client interface {
 	io.Closer
@@ -163,8 +163,21 @@ func (c *client) handleMsg(src *btypes.Address, b []byte) {
 	}
 
 	if header.Function == btypes.BacFuncBroadcast || header.Function == btypes.BacFuncUnicast || header.Function == btypes.BacFuncForwardedNPDU {
-		// Remove the header information
+		// Remove the BVLC header (decoder already advanced past it via BVLC()).
 		b = b[mtuHeaderLength:]
+		// Annex J Forwarded-NPDU: 4-byte BVLC + 6-octet original source, then NPDU.
+		// Keep the UDP sender (BBMD) as datalink src; NPDU source is folded later.
+		if header.Function == btypes.BacFuncForwardedNPDU {
+			if len(b) < forwardedNPDUOriginLength {
+				c.log.Error("forwarded-npdu missing original source address")
+				return
+			}
+			b = b[forwardedNPDUOriginLength:]
+			if err := dec.Skip(forwardedNPDUOriginLength); err != nil {
+				c.log.Error(err)
+				return
+			}
+		}
 		networkList, err := dec.NPDU(&npdu)
 		if err != nil {
 			return
@@ -198,16 +211,13 @@ func (c *client) handleMsg(src *btypes.Address, b []byte) {
 				var iam btypes.IAm
 				err = dec.IAm(&iam)
 				c.log.Debug("Received IAM Message", iam.ID)
-				iam.Addr = *src
-
+				iam.Addr = *addressWithNPDUSource(src, &npdu)
 				if npdu.Source != nil {
-					if npdu.Source.Net > 0 { // add in device network number
+					if npdu.Source.Net > 0 {
 						c.log.Debug("device-network-address", npdu.Source.Net)
-						iam.Addr.Net = npdu.Source.Net
 					}
-					if len(npdu.Source.Adr) > 0 { // add in hardware mac
+					if len(npdu.Source.Adr) > 0 {
 						c.log.Debug("device-mstp-mac-address", npdu.Source.Adr)
-						iam.Addr.Adr = npdu.Source.Adr
 					}
 				}
 				if err != nil {
@@ -231,44 +241,67 @@ func (c *client) handleMsg(src *btypes.Address, b []byte) {
 		case btypes.SimpleAck:
 			c.log.Debug("Received Simple Ack")
 			// Route by invoke-id and expected source to avoid cross-device misdelivery.
-			err := c.tsm.SendFrom(src, int(apdu.InvokeId), send)
-			if err != nil {
-				c.log.WithError(err).Debugf("unable to deliver simple ack invoke-id=%d", apdu.InvokeId)
+			if err := c.deliver(src, &npdu, apdu.InvokeId, send, "simple ack"); err != nil {
 				return
 			}
 		case btypes.ComplexAck:
 			c.log.Debug("Received Complex Ack")
-			err := c.tsm.SendFrom(src, int(apdu.InvokeId), send)
-			if err != nil {
-				c.log.WithError(err).Debugf("unable to deliver complex ack invoke-id=%d", apdu.InvokeId)
+			if err := c.deliver(src, &npdu, apdu.InvokeId, send, "complex ack"); err != nil {
 				return
 			}
 		case btypes.ConfirmedServiceRequest:
 			c.log.Debug("Received  Confirmed Service Request")
-			err := c.tsm.SendFrom(src, int(apdu.InvokeId), send)
-			if err != nil {
-				c.log.WithError(err).Debugf("unable to deliver confirmed service request invoke-id=%d", apdu.InvokeId)
+			if err := c.deliver(src, &npdu, apdu.InvokeId, send, "confirmed service request"); err != nil {
 				return
 			}
 		case btypes.Error:
-			err := fmt.Errorf("error class %s code %s", apdu.Error.Class.String(), apdu.Error.Code.String())
-			err = c.tsm.SendFrom(src, int(apdu.InvokeId), err)
-			if err != nil {
-				c.log.Debugf("unable to Send error to %d: %v", apdu.InvokeId, err)
-			}
+			bacErr := fmt.Errorf("error class %s code %s", apdu.Error.Class.String(), apdu.Error.Code.String())
+			_ = c.deliver(src, &npdu, apdu.InvokeId, bacErr, "error")
 		default:
 			// Ignore it
 			log.WithFields(log.Fields{"raw": b}).Debug("An ignored packet went through")
 		}
 	}
+}
 
-	if header.Function == btypes.BacFuncForwardedNPDU {
-		// Right now we are ignoring the NPDU data that is stored in the packet. Eventually
-		// we will need to check it for any additional information we can gleam.
-		// NDPU has source
-		b = b[forwardHeaderLength:]
-		c.log.Debug("Ignored NDPU Forwarded")
+// deliver routes a TSM response by invoke-id to the waiter matching the
+// NPDU-overlaid source address. On failure it logs at debug and returns the error.
+func (c *client) deliver(src *btypes.Address, npdu *btypes.NPDU, invokeID uint8, payload interface{}, label string) error {
+	err := c.tsm.SendFrom(addressWithNPDUSource(src, npdu), int(invokeID), payload)
+	if err != nil {
+		c.log.WithError(err).Debugf("unable to deliver %s invoke-id=%d", label, invokeID)
 	}
+	return err
+}
+
+// addressWithNPDUSource returns the datalink source with NPDU source network
+// and MS/TP address overlaid when present. Datalink Receive only reports the
+// UDP sender (Mac/MacLen); discoverer I-Am handling stores the same overlay on
+// device.Addr, so reply correlation must apply it before ExpectSource matching.
+func addressWithNPDUSource(src *btypes.Address, npdu *btypes.NPDU) *btypes.Address {
+	if src == nil {
+		return nil
+	}
+	addr := *src
+	if src.Mac != nil {
+		addr.Mac = append([]uint8(nil), src.Mac...)
+	}
+	if len(src.Adr) > 0 {
+		addr.Adr = append([]uint8(nil), src.Adr...)
+	}
+	if npdu != nil && npdu.Source != nil {
+		if npdu.Source.Net > 0 {
+			addr.Net = npdu.Source.Net
+		}
+		if len(npdu.Source.Adr) > 0 {
+			addr.Adr = append([]uint8(nil), npdu.Source.Adr...)
+			addr.Len = npdu.Source.Len
+			if addr.Len == 0 {
+				addr.SetLength()
+			}
+		}
+	}
+	return &addr
 }
 
 type SetBroadcastType struct { //used to override the header.Function
