@@ -170,3 +170,74 @@ func TestSourceCorrelationFallback(t *testing.T) {
 		t.Fatalf("expected fallback, got %v", got)
 	}
 }
+
+// TestSourceCorrelationRoutedUDP documents that ExpectSource stores the full
+// routed device address (router Mac + Net + Adr), while datalink Receive only
+// reports UDPToAddress shape (Mac/MacLen). Callers must fold NPDU source into
+// the address passed to SendFrom; a bare UDP source must not match, and a
+// different router IP/port must not match even with the same Net/Adr overlay.
+func TestSourceCorrelationRoutedUDP(t *testing.T) {
+	tsm := New(1)
+	id, err := tsm.ID(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tsm.Put(id)
+
+	routerMac := []uint8{192, 168, 1, 1, 0xBA, 0xC0}
+	expected := &btypes.Address{
+		Net:    2001,
+		Len:    1,
+		MacLen: 6,
+		Mac:    append([]uint8(nil), routerMac...),
+		Adr:    []uint8{0x1D},
+	}
+	if err := tsm.ExpectSource(id, expected); err != nil {
+		t.Fatal(err)
+	}
+
+	// Datalink shape only — what UDPToAddress / pcap Receive returns.
+	udpSrc := &btypes.Address{
+		MacLen: 6,
+		Mac:    append([]uint8(nil), routerMac...),
+	}
+	if err := tsm.SendFrom(udpSrc, id, "bare-udp"); err == nil {
+		t.Fatal("bare UDP source must not match routed expected address")
+	}
+
+	wrongRouter := &btypes.Address{
+		Net:    2001,
+		Len:    1,
+		MacLen: 6,
+		Mac:    []uint8{10, 0, 0, 1, 0xBA, 0xC0},
+		Adr:    []uint8{0x1D},
+	}
+	if err := tsm.SendFrom(wrongRouter, id, "wrong-host"); err == nil {
+		t.Fatal("different IP/port must not match")
+	}
+
+	// After folding NPDU source onto the same router UDP address (as handleMsg does).
+	folded := &btypes.Address{
+		Net:    2001,
+		Len:    1,
+		MacLen: 6,
+		Mac:    append([]uint8(nil), routerMac...),
+		Adr:    []uint8{0x1D},
+	}
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		if err := tsm.SendFrom(folded, id, "ok"); err != nil {
+			t.Errorf("folded routed source failed: %v", err)
+		}
+	}()
+
+	got, err := tsm.Receive(id, time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "ok" {
+		t.Fatalf("expected ok, got %v", got)
+	}
+	<-done
+}
