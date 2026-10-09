@@ -12,60 +12,79 @@ func TestExtractObjectMetadata(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		props   []btypes.Property
+		reply   btypes.Object
 		wantErr bool
 	}{
 		{
 			name: "swapped property order",
-			props: []btypes.Property{
+			reply: btypes.Object{ID: objID, Properties: []btypes.Property{
 				{Type: btypes.PropObjectType, Data: uint32(btypes.AnalogInput)},
 				{Type: btypes.PropObjectName, Data: "AI-1"},
-			},
+			}},
 		},
 		{
 			name: "extra properties ignored",
-			props: []btypes.Property{
+			reply: btypes.Object{ID: objID, Properties: []btypes.Property{
 				{Type: btypes.PropDescription, Data: "desc"},
 				{Type: btypes.PropObjectName, Data: "AI-1"},
 				{Type: btypes.PropObjectType, Data: uint32(btypes.AnalogInput)},
-			},
+			}},
 		},
 		{
-			name: "object type as float32 rejected",
-			props: []btypes.Property{
-				{Type: btypes.PropObjectType, Data: float32(btypes.AnalogInput)},
+			name: "fewer than two properties",
+			reply: btypes.Object{ID: objID, Properties: []btypes.Property{
 				{Type: btypes.PropObjectName, Data: "AI-1"},
+			}},
+			wantErr: true,
+		},
+		{
+			name: "wrong property ids",
+			reply: btypes.Object{ID: objID, Properties: []btypes.Property{
+				{Type: btypes.PropPresentValue, Data: float32(1)},
+				{Type: btypes.PropUnits, Data: uint32(95)},
+			}},
+			wantErr: true,
+		},
+		{
+			name: "wrong object id",
+			reply: btypes.Object{
+				ID: btypes.ObjectID{Type: btypes.BinaryInput, Instance: 80},
+				Properties: []btypes.Property{
+					{Type: btypes.PropObjectName, Data: "FD71905OP"},
+					{Type: btypes.PropObjectType, Data: uint32(btypes.BinaryInput)},
+				},
 			},
 			wantErr: true,
 		},
 		{
-			name: "missing object name",
-			props: []btypes.Property{
-				{Type: btypes.PropObjectType, Data: uint32(btypes.AnalogInput)},
-			},
+			name: "wrong object type",
+			reply: btypes.Object{ID: objID, Properties: []btypes.Property{
+				{Type: btypes.PropObjectName, Data: "AI-1"},
+				{Type: btypes.PropObjectType, Data: uint32(btypes.BinaryInput)},
+			}},
+			wantErr: true,
+		},
+		{
+			name: "object type as float32 rejected",
+			reply: btypes.Object{ID: objID, Properties: []btypes.Property{
+				{Type: btypes.PropObjectType, Data: float32(btypes.AnalogInput)},
+				{Type: btypes.PropObjectName, Data: "AI-1"},
+			}},
 			wantErr: true,
 		},
 		{
 			name: "wrong object name type",
-			props: []btypes.Property{
+			reply: btypes.Object{ID: objID, Properties: []btypes.Property{
 				{Type: btypes.PropObjectName, Data: float32(1)},
 				{Type: btypes.PropObjectType, Data: uint32(btypes.AnalogInput)},
-			},
-			wantErr: true,
-		},
-		{
-			name: "wrong object type type",
-			props: []btypes.Property{
-				{Type: btypes.PropObjectName, Data: "AI-1"},
-				{Type: btypes.PropObjectType, Data: "not-an-object-type"},
-			},
+			}},
 			wantErr: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			name, typ, err := extractObjectMetadata(devID, objID, tt.props)
+			name, err := extractObjectMetadata(devID, objID, tt.reply)
 			if tt.wantErr {
 				if err == nil {
 					t.Fatal("expected error")
@@ -77,9 +96,6 @@ func TestExtractObjectMetadata(t *testing.T) {
 			}
 			if name != "AI-1" {
 				t.Fatalf("expected name AI-1 got %s", name)
-			}
-			if typ != btypes.AnalogInput {
-				t.Fatalf("expected type AnalogInput got %v", typ)
 			}
 		})
 	}

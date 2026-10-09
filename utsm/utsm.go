@@ -60,14 +60,22 @@ func DefaultSubscriberLastReceivedTimeout(timeout time.Duration) ManagerOption {
 
 func (m *Manager) Publish(id int, data interface{}) {
 	m.mutex.Lock()
-	defer m.mutex.Unlock()
-
+	var dst []*subscriber
 	for _, s := range m.subs {
-		if id >= s.start && id <= s.end {
-			s.mutex.Lock()
-			s.lastReceived = time.Now()
-			s.data <- data
-			s.mutex.Unlock()
+		if id < s.start || id > s.end {
+			continue
+		}
+		s.mutex.Lock()
+		s.lastReceived = time.Now()
+		s.mutex.Unlock()
+		dst = append(dst, s)
+	}
+	m.mutex.Unlock()
+
+	for _, s := range dst {
+		select {
+		case s.data <- data:
+		case <-s.done:
 		}
 	}
 }
@@ -78,6 +86,7 @@ func (m *Manager) newSubscriber(start int, end int, options []SubscriberOption) 
 		end:          end,
 		lastReceived: time.Now(),
 		data:         make(chan interface{}, 1),
+		done:         make(chan struct{}),
 		mutex:        &sync.Mutex{},
 	}
 	m.mutex.Lock()

@@ -14,16 +14,13 @@ import (
 func (c *client) ReadProperty(device btypes.Device, rp btypes.PropertyData) (btypes.PropertyData, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	id, err := c.tsm.ID(ctx)
+	device.Addr.SetLength()
+	id, err := c.tsm.ID(ctx, &device.Addr, btypes.ServiceConfirmedReadProperty)
 	if err != nil {
 		return btypes.PropertyData{}, fmt.Errorf("unable to get an transaction id: %v", err)
 	}
 	defer c.tsm.Put(id)
 	enc := encoding.NewEncoder()
-	device.Addr.SetLength()
-	if err := c.tsm.ExpectSource(id, &device.Addr); err != nil {
-		return btypes.PropertyData{}, fmt.Errorf("unable to set response source for transaction id %d: %w", id, err)
-	}
 	npdu := &btypes.NPDU{
 		Version:               btypes.ProtocolVersion,
 		Destination:           &device.Addr,

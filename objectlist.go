@@ -132,17 +132,16 @@ func (c *client) objectInformation(dev *btypes.Device, objs []btypes.Object) err
 	if err != nil {
 		return fmt.Errorf("unable to read multiple property for device %d: %w", dev.ID.Instance, err)
 	}
+	if len(resp.Objects) != len(keys) {
+		return fmt.Errorf("device %d: response has %d objects, requested %d", dev.ID.Instance, len(resp.Objects), len(keys))
+	}
 	for i, r := range resp.Objects {
-		if i >= len(keys) {
-			return fmt.Errorf("response object index %d exceeds requested objects (%d) for device %d", i, len(keys), dev.ID.Instance)
-		}
-		name, objectType, err := extractObjectMetadata(dev.ID, keys[i], r.Properties)
+		name, err := extractObjectMetadata(dev.ID, keys[i], r)
 		if err != nil {
 			return err
 		}
 		obj := dev.Objects[keys[i].Type][keys[i].Instance]
 		obj.Name = name
-		obj.ID.Type = objectType
 		dev.Objects[keys[i].Type][keys[i].Instance] = obj
 	}
 	return nil
@@ -252,7 +251,10 @@ func extractObjectIDsForRange(devID btypes.ObjectID, start, end int, props []bty
 	return objs, nil
 }
 
-func extractObjectMetadata(devID, requestedID btypes.ObjectID, props []btypes.Property) (string, btypes.ObjectType, error) {
+func extractObjectMetadata(devID, requestedID btypes.ObjectID, reply btypes.Object) (string, error) {
+	if reply.ID != requestedID {
+		return "", fmt.Errorf("device %d response object %s does not match requested %s", devID.Instance, reply.ID.String(), requestedID.String())
+	}
 	var (
 		name      string
 		objectTyp btypes.ObjectType
@@ -260,12 +262,12 @@ func extractObjectMetadata(devID, requestedID btypes.ObjectID, props []btypes.Pr
 		typeOK    bool
 	)
 
-	for _, p := range props {
+	for _, p := range reply.Properties {
 		switch p.Type {
 		case btypes.PropObjectName:
 			v, ok := p.Data.(string)
 			if !ok {
-				return "", 0, fmt.Errorf("device %d object %s property %d: expected string got %T", devID.Instance, requestedID.String(), p.Type, p.Data)
+				return "", fmt.Errorf("device %d object %s property %d: expected string got %T", devID.Instance, requestedID.String(), p.Type, p.Data)
 			}
 			name = v
 			nameOK = true
@@ -279,14 +281,17 @@ func extractObjectMetadata(devID, requestedID btypes.ObjectID, props []btypes.Pr
 				objectTyp = v
 				typeOK = true
 			default:
-				return "", 0, fmt.Errorf("device %d object %s property %d: expected uint32 or ObjectType got %T", devID.Instance, requestedID.String(), p.Type, p.Data)
+				return "", fmt.Errorf("device %d object %s property %d: expected uint32 or ObjectType got %T", devID.Instance, requestedID.String(), p.Type, p.Data)
 			}
 		}
 	}
 
 	if !nameOK || !typeOK {
 		// Require both fields before mutating stored object metadata.
-		return "", 0, fmt.Errorf("device %d object %s missing required metadata (name=%t objectType=%t)", devID.Instance, requestedID.String(), nameOK, typeOK)
+		return "", fmt.Errorf("device %d object %s missing required metadata (name=%t objectType=%t)", devID.Instance, requestedID.String(), nameOK, typeOK)
 	}
-	return name, objectTyp, nil
+	if objectTyp != requestedID.Type {
+		return "", fmt.Errorf("device %d object %s object-type %d does not match requested %d", devID.Instance, requestedID.String(), objectTyp, requestedID.Type)
+	}
+	return name, nil
 }

@@ -84,7 +84,7 @@ func NewDevice(device *Device) (*Device, error) {
 		return nil, err
 	}
 	// Match datalink UDPToAddress shape: Mac + MacLen. Adr/Len only for routed
-	// devices so ExpectSource aligns with addressWithNPDUSource fold of replies.
+	// devices so reply correlation aligns with the NPDU source fold.
 	addr := Address{
 		Net: uint16(device.NetworkNumber),
 		Mac: ip,

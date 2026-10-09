@@ -42,3 +42,16 @@ func TestNewDevice_RoutedAddress(t *testing.T) {
 	assert.Equal(t, []uint8{0x1D}, dev.Addr.Adr)
 	assert.Equal(t, uint8(1), dev.Addr.Len)
 }
+
+func TestSetLengthUsesAdrLength(t *testing.T) {
+	mstp := Address{Adr: []uint8{22}}
+	mstp.SetLength()
+	assert.Equal(t, uint8(1), mstp.Len)
+
+	ipMAC := Address{Adr: []uint8{192, 168, 0, 78, 0xBA, 0xC0}}
+	ipMAC.SetLength()
+	assert.Equal(t, uint8(6), ipMAC.Len)
+
+	ipMAC.SetLength()
+	assert.Equal(t, uint8(6), ipMAC.Len)
+}

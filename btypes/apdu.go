@@ -112,6 +112,11 @@ type APDU struct {
 
 	// This is the raw data passed based on the service
 	RawData []byte
+
+	// RejectReason is set for a Reject PDU. AbortReason is set for an Abort PDU.
+	// Neither PDU carries a confirmed-service choice.
+	RejectReason uint8
+	AbortReason  uint8
 }
 
 // PDUType encompasses all valid pdus.
