@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/Nortech-ai/bacNetIP/btypes"
+	"github.com/Nortech-ai/bacNetIP/btypes/ndpu"
 	"github.com/Nortech-ai/bacNetIP/datalink"
 	"github.com/Nortech-ai/bacNetIP/encoding"
 	log "github.com/sirupsen/logrus"
@@ -560,4 +561,35 @@ func awaitReply(t *testing.T, c *client, id int, send func()) interface{} {
 func pduPacket(t *testing.T, apdu []byte, npduSrc *btypes.Address) []byte {
 	t.Helper()
 	return bvlcWithNPDU(t, btypes.BacFuncUnicast, npduSrc, nil, apdu)
+}
+
+func TestNetworkLayerMessageDoesNotDecodeAPDU(t *testing.T) {
+	c := newTestClient(t)
+	buf := captureLog(c)
+	src := udpAddr(net.IPv4(192, 168, 0, 78), datalink.DefaultPort)
+	c.handleMsg(src, networkLayerPacket(t))
+	assert.Contains(t, buf.String(), "Ignored Network Layer Message")
+	assert.NotContains(t, buf.String(), "Issue decoding APDU")
+	assert.NotContains(t, buf.String(), "level=error")
+}
+
+func networkLayerPacket(t *testing.T) []byte {
+	t.Helper()
+	payload := encoding.NewEncoder()
+	payload.NPDU(&btypes.NPDU{
+		Version:                 btypes.ProtocolVersion,
+		IsNetworkLayerMessage:   true,
+		NetworkLayerMessageType: ndpu.WhoIsRouterToNetwork,
+	})
+	require.NoError(t, payload.Error())
+	enc := encoding.NewEncoder()
+	err := enc.BVLC(btypes.BVLC{
+		Type:     btypes.BVLCTypeBacnetIP,
+		Function: btypes.BacFuncBroadcast,
+		Length:   4 + uint16(len(payload.Bytes())),
+		Data:     payload.Bytes(),
+	})
+	require.NoError(t, err)
+	require.NoError(t, enc.Error())
+	return enc.Bytes()
 }

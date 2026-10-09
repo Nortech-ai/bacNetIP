@@ -86,12 +86,12 @@ func NewClient(cb *ClientBuilder) (Client, error) {
 	} else if cb.UsePcap {
 		dataLink, err = datalink.NewPcapDataLink(iface, port, cb.PcapListenTimeout)
 		if err != nil {
-			return nil, fmt.Errorf("invalid interfaceName")
+			return nil, fmt.Errorf("pcap datalink on %q: %w", iface, err)
 		}
 	} else if iface != "" {
 		dataLink, err = datalink.NewUDPDataLink(iface, port)
 		if err != nil {
-			return nil, fmt.Errorf("invalid interfaceName")
+			return nil, fmt.Errorf("udp datalink on %q: %w", iface, err)
 		}
 	} else {
 		//check subnet
@@ -102,7 +102,7 @@ func NewClient(cb *ClientBuilder) (Client, error) {
 		}
 		dataLink, err = datalink.NewUDPDataLinkFromIP(ip, sub, port)
 		if err != nil {
-			return nil, fmt.Errorf("invalid ip or subnet cidr or port")
+			return nil, fmt.Errorf("udp datalink on %s/%d: %w", ip, sub, err)
 		}
 	}
 
@@ -189,12 +189,11 @@ func (c *client) handleMsg(src *btypes.Address, b []byte) {
 			c.log.Debug("Ignored Network Layer Message")
 			if npdu.NetworkLayerMessageType == ndpu.NetworkIs {
 				c.utsm.Publish(int(npdu.Source.Net), npdu)
-				//return
 			}
 			if npdu.NetworkLayerMessageType == ndpu.IamRouterToNetwork {
 				c.utsm.Publish(int(npdu.Source.Net), networkList)
-				//return
 			}
+			return
 		}
 
 		// We want to keep the APDU intact, so we will get a snapshot before decoding
