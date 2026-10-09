@@ -138,91 +138,6 @@ func TestAddressWithNPDUSource(t *testing.T) {
 	assert.Equal(t, router.Mac, bare.Mac)
 }
 
-func TestHandleMsgRoutedComplexAckMatchesStoredAddress(t *testing.T) {
-	link := datalink.NewMockDataLink()
-	cli, err := NewClient(&ClientBuilder{
-		DataLink: link,
-		Ip:       "192.168.1.100",
-	})
-	require.NoError(t, err)
-	defer cli.Close()
-	c := cli.(*client)
-
-	routerUDP := datalink.UDPToAddress(&net.UDPAddr{
-		IP:   net.IPv4(192, 168, 1, 1).To4(),
-		Port: 0xBAC0,
-	})
-	expected := addressWithNPDUSource(routerUDP, &btypes.NPDU{
-		Source: &btypes.Address{Net: 2001, Len: 1, Adr: []uint8{0x1D}},
-	})
-
-	id, err := c.tsm.ID(t.Context())
-	require.NoError(t, err)
-	defer c.tsm.Put(id)
-	require.NoError(t, c.tsm.ExpectSource(id, expected))
-
-	done := make(chan interface{}, 1)
-	go func() {
-		raw, recvErr := c.tsm.Receive(id, time.Second)
-		if recvErr != nil {
-			done <- recvErr
-			return
-		}
-		done <- raw
-	}()
-
-	// Incoming datalink source is UDP-only; NPDU carries Net + Adr.
-	c.handleMsg(routerUDP, complexAckPacket(t, uint8(id), &btypes.Address{
-		Net: 2001,
-		Len: 1,
-		Adr: []uint8{0x1D},
-	}))
-
-	select {
-	case v := <-done:
-		require.IsType(t, []byte{}, v)
-	case <-time.After(time.Second):
-		t.Fatal("timed out waiting for routed complex ack delivery")
-	}
-}
-
-func TestHandleMsgRoutedComplexAckRejectsWrongRouter(t *testing.T) {
-	link := datalink.NewMockDataLink()
-	cli, err := NewClient(&ClientBuilder{
-		DataLink: link,
-		Ip:       "192.168.1.100",
-	})
-	require.NoError(t, err)
-	defer cli.Close()
-	c := cli.(*client)
-
-	routerUDP := datalink.UDPToAddress(&net.UDPAddr{
-		IP:   net.IPv4(192, 168, 1, 1).To4(),
-		Port: 0xBAC0,
-	})
-	expected := addressWithNPDUSource(routerUDP, &btypes.NPDU{
-		Source: &btypes.Address{Net: 2001, Len: 1, Adr: []uint8{0x1D}},
-	})
-
-	id, err := c.tsm.ID(t.Context())
-	require.NoError(t, err)
-	defer c.tsm.Put(id)
-	require.NoError(t, c.tsm.ExpectSource(id, expected))
-
-	wrongRouter := datalink.UDPToAddress(&net.UDPAddr{
-		IP:   net.IPv4(10, 0, 0, 1).To4(),
-		Port: 0xBAC0,
-	})
-	c.handleMsg(wrongRouter, complexAckPacket(t, uint8(id), &btypes.Address{
-		Net: 2001,
-		Len: 1,
-		Adr: []uint8{0x1D},
-	}))
-
-	_, err = c.tsm.Receive(id, 50*time.Millisecond)
-	require.Error(t, err, "reply from a different UDP sender must not be delivered")
-}
-
 func TestNewDeviceAddressMatchesUDPToAddress(t *testing.T) {
 	link := datalink.NewMockDataLink()
 	cli, err := NewClient(&ClientBuilder{
@@ -247,14 +162,13 @@ func TestNewDeviceAddressMatchesUDPToAddress(t *testing.T) {
 		Port: 0xBAC0,
 	})
 
-	id, err := c.tsm.ID(t.Context())
+	id, err := c.tsm.ID(t.Context(), &dev.Addr, btypes.ServiceConfirmedReadProperty)
 	require.NoError(t, err)
 	defer c.tsm.Put(id)
-	require.NoError(t, c.tsm.ExpectSource(id, &dev.Addr))
 
 	done := make(chan error, 1)
 	go func() {
-		done <- c.tsm.SendFrom(udpAddr, id, "ok")
+		done <- c.tsm.Send(udpAddr, id, nil, "ok")
 	}()
 	raw, err := c.tsm.Receive(id, time.Second)
 	require.NoError(t, err)
@@ -289,14 +203,13 @@ func TestNewDeviceRoutedAddressMatchesFoldedSource(t *testing.T) {
 		Source: &btypes.Address{Net: 2001, Len: 1, Adr: []uint8{0x1D}},
 	})
 
-	id, err := c.tsm.ID(t.Context())
+	id, err := c.tsm.ID(t.Context(), &dev.Addr, btypes.ServiceConfirmedReadProperty)
 	require.NoError(t, err)
 	defer c.tsm.Put(id)
-	require.NoError(t, c.tsm.ExpectSource(id, &dev.Addr))
 
 	done := make(chan error, 1)
 	go func() {
-		done <- c.tsm.SendFrom(folded, id, "ok")
+		done <- c.tsm.Send(folded, id, nil, "ok")
 	}()
 	raw, err := c.tsm.Receive(id, time.Second)
 	require.NoError(t, err)
@@ -322,10 +235,9 @@ func TestHandleMsgRoutedSimpleAckMatchesStoredAddress(t *testing.T) {
 		Source: &btypes.Address{Net: 2001, Len: 1, Adr: []uint8{0x1D}},
 	})
 
-	id, err := c.tsm.ID(t.Context())
+	id, err := c.tsm.ID(t.Context(), expected, btypes.ServiceConfirmedWriteProperty)
 	require.NoError(t, err)
 	defer c.tsm.Put(id)
-	require.NoError(t, c.tsm.ExpectSource(id, expected))
 
 	done := make(chan interface{}, 1)
 	go func() {
@@ -349,60 +261,6 @@ func TestHandleMsgRoutedSimpleAckMatchesStoredAddress(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("timed out waiting for routed simple ack delivery")
 	}
-}
-
-func TestHandleMsgForwardedNPDUDecodesAPDU(t *testing.T) {
-	link := datalink.NewMockDataLink()
-	cli, err := NewClient(&ClientBuilder{
-		DataLink: link,
-		Ip:       "192.168.1.100",
-	})
-	require.NoError(t, err)
-	defer cli.Close()
-	c := cli.(*client)
-
-	var buf bytes.Buffer
-	c.log.SetOutput(&buf)
-	c.log.SetLevel(log.DebugLevel)
-	c.log.SetFormatter(&log.TextFormatter{
-		DisableColors:    true,
-		DisableTimestamp: true,
-	})
-
-	bbmd := datalink.UDPToAddress(&net.UDPAddr{
-		IP:   net.IPv4(192, 168, 1, 1).To4(),
-		Port: 0xBAC0,
-	})
-	expected := addressWithNPDUSource(bbmd, &btypes.NPDU{})
-
-	id, err := c.tsm.ID(t.Context())
-	require.NoError(t, err)
-	defer c.tsm.Put(id)
-	require.NoError(t, c.tsm.ExpectSource(id, expected))
-
-	done := make(chan interface{}, 1)
-	go func() {
-		raw, recvErr := c.tsm.Receive(id, time.Second)
-		if recvErr != nil {
-			done <- recvErr
-			return
-		}
-		done <- raw
-	}()
-
-	origin := []byte{10, 0, 0, 5, 0xBA, 0xC0} // dummy original BACnet/IP address
-	c.handleMsg(bbmd, forwardedNPDUPacket(t, uint8(id), origin, nil))
-
-	select {
-	case v := <-done:
-		require.IsType(t, []byte{}, v, "forwarded complex ack should deliver")
-	case <-time.After(time.Second):
-		t.Fatal("timed out waiting for forwarded-npdu delivery")
-	}
-
-	out := buf.String()
-	assert.NotContains(t, out, "Issue decoding APDU")
-	assert.NotContains(t, out, "Ignored NDPU Forwarded")
 }
 
 func complexAckPacket(t *testing.T, invokeID uint8, npduSrc *btypes.Address) []byte {
@@ -460,4 +318,246 @@ func bvlcWithNPDU(t *testing.T, bacFunc btypes.BacFunc, npduSrc *btypes.Address,
 	require.NoError(t, err)
 	require.NoError(t, enc.Error())
 	return enc.Bytes()
+}
+
+func newTestClient(t *testing.T) *client {
+	t.Helper()
+	link := datalink.NewMockDataLink()
+	cli, err := NewClient(&ClientBuilder{
+		DataLink: link,
+		Ip:       "192.168.0.165",
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = cli.Close() })
+	return cli.(*client)
+}
+
+func udpAddr(ip net.IP, port int) *btypes.Address {
+	return datalink.UDPToAddress(&net.UDPAddr{IP: ip.To4(), Port: port})
+}
+
+func routedPeer(router *btypes.Address, netNum uint16, mac uint8) *btypes.Address {
+	return addressWithNPDUSource(router, &btypes.NPDU{
+		Source: &btypes.Address{Net: netNum, Len: 1, Adr: []uint8{mac}},
+	})
+}
+
+func station(netNum uint16, mac uint8) *btypes.Address {
+	return &btypes.Address{Net: netNum, Len: 1, Adr: []uint8{mac}}
+}
+
+func captureLog(c *client) *bytes.Buffer {
+	var buf bytes.Buffer
+	c.log.SetOutput(&buf)
+	c.log.SetLevel(log.DebugLevel)
+	c.log.SetFormatter(&log.TextFormatter{
+		DisableColors:    true,
+		DisableTimestamp: true,
+	})
+	return &buf
+}
+
+func pendingReply(t *testing.T, c *client, peer *btypes.Address, service btypes.ServiceConfirmed) int {
+	t.Helper()
+	id, err := c.tsm.ID(t.Context(), peer, service)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.tsm.Put(id) })
+	return id
+}
+
+func assertStillPending(t *testing.T, c *client, id int) {
+	t.Helper()
+	_, err := c.tsm.Receive(id, 30*time.Millisecond)
+	require.Error(t, err)
+}
+
+func deliverReply(t *testing.T, c *client, id int, send func()) []byte {
+	t.Helper()
+	v := awaitReply(t, c, id, send)
+	require.IsType(t, []byte{}, v)
+	return v.([]byte)
+}
+
+func complexAckWith(t *testing.T, invokeID uint8, service btypes.ServiceConfirmed, npduSrc *btypes.Address, body []byte) []byte {
+	t.Helper()
+	apdu := append([]byte{byte(btypes.ComplexAck), invokeID, byte(service)}, body...)
+	return bvlcWithNPDU(t, btypes.BacFuncUnicast, npduSrc, nil, apdu)
+}
+
+func TestSameInvokeIDDifferentPeers(t *testing.T) {
+	router := udpAddr(net.IPv4(192, 168, 0, 78), datalink.DefaultPort)
+	peer22 := routedPeer(router, 7, 22)
+	peer5 := routedPeer(router, 7, 5)
+
+	c1 := newTestClient(t)
+	c2 := newTestClient(t)
+	id1 := pendingReply(t, c1, peer22, btypes.ServiceConfirmedReadPropMultiple)
+	id2 := pendingReply(t, c2, peer5, btypes.ServiceConfirmedReadPropMultiple)
+	require.Equal(t, id1, id2, "each client starts its own invoke-id sequence")
+
+	pkt22 := complexAckWith(t, uint8(id1), btypes.ServiceConfirmedReadPropMultiple, station(7, 22), []byte("mac-22"))
+	pkt5 := complexAckWith(t, uint8(id2), btypes.ServiceConfirmedReadPropMultiple, station(7, 5), []byte("mac-5"))
+
+	c1.handleMsg(router, pkt5)
+	assertStillPending(t, c1, id1)
+	c2.handleMsg(router, pkt22)
+	assertStillPending(t, c2, id2)
+
+	got1 := deliverReply(t, c1, id1, func() { c1.handleMsg(router, pkt22) })
+	got2 := deliverReply(t, c2, id2, func() { c2.handleMsg(router, pkt5) })
+	assert.Contains(t, string(got1), "mac-22")
+	assert.NotContains(t, string(got1), "mac-5")
+	assert.Contains(t, string(got2), "mac-5")
+	assert.NotContains(t, string(got2), "mac-22")
+}
+
+func TestForeignReplyLeavesTransactionPending(t *testing.T) {
+	router := udpAddr(net.IPv4(192, 168, 0, 78), datalink.DefaultPort)
+	peer := routedPeer(router, 7, 22)
+
+	cases := []struct {
+		name   string
+		packet func(id uint8) []byte
+		src    *btypes.Address
+	}{
+		{
+			name: "wrong router ip",
+			src:  udpAddr(net.IPv4(10, 0, 0, 1), datalink.DefaultPort),
+			packet: func(id uint8) []byte {
+				return complexAckWith(t, id, btypes.ServiceConfirmedReadPropMultiple, station(7, 22), []byte("other-ip"))
+			},
+		},
+		{
+			name: "wrong router port",
+			src:  udpAddr(net.IPv4(192, 168, 0, 78), datalink.DefaultPort+1),
+			packet: func(id uint8) []byte {
+				return complexAckWith(t, id, btypes.ServiceConfirmedReadPropMultiple, station(7, 22), []byte("other-port"))
+			},
+		},
+		{
+			name: "wrong routed sadr",
+			src:  router,
+			packet: func(id uint8) []byte {
+				return complexAckWith(t, id, btypes.ServiceConfirmedReadPropMultiple, station(7, 5), []byte("other-mac"))
+			},
+		},
+		{
+			name: "wrong service",
+			src:  router,
+			packet: func(id uint8) []byte {
+				return complexAckWith(t, id, btypes.ServiceConfirmedReadProperty, station(7, 22), []byte("other-service"))
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			c := newTestClient(t)
+			buf := captureLog(c)
+			id := pendingReply(t, c, peer, btypes.ServiceConfirmedReadPropMultiple)
+			c.handleMsg(tc.src, tc.packet(uint8(id)))
+			assertStillPending(t, c, id)
+			assert.NotContains(t, buf.String(), "level=error")
+
+			own := complexAckWith(t, uint8(id), btypes.ServiceConfirmedReadPropMultiple, station(7, 22), []byte("present-value"))
+			got := deliverReply(t, c, id, func() { c.handleMsg(router, own) })
+			assert.Contains(t, string(got), "present-value")
+			assert.NotContains(t, buf.String(), "level=error")
+		})
+	}
+}
+
+func TestForwardedNPDUUsesOrigin(t *testing.T) {
+	c := newTestClient(t)
+	buf := captureLog(c)
+	bbmd := udpAddr(net.IPv4(192, 168, 1, 1), datalink.DefaultPort)
+	origin := udpAddr(net.IPv4(10, 0, 0, 5), datalink.DefaultPort)
+	npduSrc := station(7, 22)
+
+	bbmdID := pendingReply(t, c, bbmd, btypes.ServiceConfirmedReadProperty)
+	c.handleMsg(bbmd, forwardedNPDUPacket(t, uint8(bbmdID), append([]byte(nil), origin.Mac...), npduSrc))
+	assertStillPending(t, c, bbmdID)
+
+	expected := addressWithNPDUSource(origin, &btypes.NPDU{Source: npduSrc})
+	id := pendingReply(t, c, expected, btypes.ServiceConfirmedReadProperty)
+	got := deliverReply(t, c, id, func() {
+		c.handleMsg(bbmd, forwardedNPDUPacket(t, uint8(id), append([]byte(nil), origin.Mac...), npduSrc))
+	})
+	require.NotEmpty(t, got)
+	assert.NotContains(t, buf.String(), "level=error")
+	assert.NotContains(t, buf.String(), "Issue decoding APDU")
+}
+
+func TestRejectAndAbortFollowThePendingRequest(t *testing.T) {
+	router := udpAddr(net.IPv4(192, 168, 0, 78), datalink.DefaultPort)
+	peer := routedPeer(router, 7, 22)
+	cases := []struct {
+		name         string
+		src          *btypes.Address
+		pdu          btypes.PDUType
+		reason       byte
+		service      btypes.ServiceConfirmed
+		errorService btypes.ServiceConfirmed
+		want         string
+	}{
+		{"reject from another source", udpAddr(net.IPv4(10, 0, 0, 1), datalink.DefaultPort), btypes.Reject, 1, btypes.ServiceConfirmedReadPropMultiple, 0, ""},
+		{"matching reject", router, btypes.Reject, 9, btypes.ServiceConfirmedReadPropMultiple, 0, "reject reason 9"},
+		{"matching abort", router, btypes.Abort, 1, btypes.ServiceConfirmedWriteProperty, 0, "abort reason 1"},
+		{"error wrong service", router, btypes.Error, 0, btypes.ServiceConfirmedReadPropMultiple, btypes.ServiceConfirmedReadProperty, ""},
+		{"matching error", router, btypes.Error, 0, btypes.ServiceConfirmedReadPropMultiple, btypes.ServiceConfirmedReadPropMultiple, "error class"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			c := newTestClient(t)
+			buf := captureLog(c)
+			id := pendingReply(t, c, peer, tc.service)
+			apdu := []byte{byte(tc.pdu), uint8(id), tc.reason}
+			if tc.pdu == btypes.Error {
+				// Application enumerated tags. The decoder stores the tag meta as class and code.
+				apdu = []byte{byte(btypes.Error), uint8(id), byte(tc.errorService), 0x91, 0x01, 0x91, 0x02}
+			}
+			pkt := pduPacket(t, apdu, station(7, 22))
+			if tc.want == "" {
+				c.handleMsg(tc.src, pkt)
+				assertStillPending(t, c, id)
+				got := deliverReply(t, c, id, func() {
+					c.handleMsg(router, complexAckWith(t, uint8(id), tc.service, station(7, 22), []byte("present-value")))
+				})
+				assert.Contains(t, string(got), "present-value")
+				assert.NotContains(t, buf.String(), "level=error")
+				return
+			}
+			got := awaitReply(t, c, id, func() { c.handleMsg(tc.src, pkt) })
+			err, ok := got.(error)
+			require.True(t, ok, "got %T", got)
+			assert.Contains(t, err.Error(), tc.want)
+			assert.NotContains(t, buf.String(), "level=error")
+		})
+	}
+}
+
+func awaitReply(t *testing.T, c *client, id int, send func()) interface{} {
+	t.Helper()
+	done := make(chan interface{}, 1)
+	go func() {
+		raw, err := c.tsm.Receive(id, time.Second)
+		if err != nil {
+			done <- err
+			return
+		}
+		done <- raw
+	}()
+	send()
+	select {
+	case v := <-done:
+		return v
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for reply")
+	}
+	return nil
+}
+
+func pduPacket(t *testing.T, apdu []byte, npduSrc *btypes.Address) []byte {
+	t.Helper()
+	return bvlcWithNPDU(t, btypes.BacFuncUnicast, npduSrc, nil, apdu)
 }

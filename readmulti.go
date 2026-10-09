@@ -23,15 +23,12 @@ func (c *client) ReadMultiProperty(device btypes.Device, rp btypes.MultiplePrope
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	id, err := c.tsm.ID(ctx)
+	device.Addr.SetLength()
+	id, err := c.tsm.ID(ctx, &device.Addr, btypes.ServiceConfirmedReadPropMultiple)
 	if err != nil {
 		return out, fmt.Errorf("unable to get transaction id: %v", err)
 	}
 	defer c.tsm.Put(id)
-	device.Addr.SetLength()
-	if err := c.tsm.ExpectSource(id, &device.Addr); err != nil {
-		return out, fmt.Errorf("unable to set response source for transaction id %d: %w", id, err)
-	}
 	err = device.CheckADPU()
 	if err != nil {
 		return btypes.MultiplePropertyData{}, err

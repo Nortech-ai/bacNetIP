@@ -2,11 +2,24 @@ package tsm
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
 	"github.com/Nortech-ai/bacNetIP/btypes"
 )
+
+var testSrc = &btypes.Address{MacLen: 1, Mac: []uint8{1}}
+
+func testID(ctx context.Context, m *TSM, src *btypes.Address, svc btypes.ServiceConfirmed) (int, error) {
+	if src == nil {
+		src = testSrc
+	}
+	if svc == 0 {
+		svc = btypes.ServiceConfirmedReadProperty
+	}
+	return m.ID(ctx, src, svc)
+}
 
 func TestTSM(t *testing.T) {
 	size := 3
@@ -14,230 +27,177 @@ func TestTSM(t *testing.T) {
 	ctx := context.Background()
 	var err error
 	for i := 0; i < size-1; i++ {
-		_, err = tsm.ID(ctx)
+		_, err = testID(ctx, tsm, nil, 0)
 		if err != nil {
 			t.Fatal(err)
 		}
 	}
 
-	id, err := tsm.ID(ctx)
+	id, err := testID(ctx, tsm, nil, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	// The buffer should be full at this point.
 	ctx, cancel := context.WithTimeout(ctx, time.Millisecond)
 	defer cancel()
-	_, err = tsm.ID(ctx)
+	_, err = testID(ctx, tsm, nil, 0)
 	if err == nil {
 		t.Fatal("Buffer was full but an id was given ")
 	}
 
-	// Free an ID
 	err = tsm.Put(id)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	// Now we should be able to get a new id since we free id
-	_, err = tsm.ID(context.Background())
+	_, err = testID(context.Background(), tsm, nil, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
-
 }
 
 func TestDataTransaction(t *testing.T) {
 	size := 2
-	tsm := New(size)
+	m := New(size)
 	ids := make([]int, size)
 	var err error
 
 	for i := 0; i < size; i++ {
-		ids[i], err = tsm.ID(context.Background())
+		ids[i], err = testID(context.Background(), m, nil, 0)
 		if err != nil {
 			t.Fatal(err)
 		}
 	}
 
 	go func() {
-		err = tsm.Send(ids[0], "Hello First ID")
-		if err != nil {
-			t.Error(err)
+		if sendErr := m.Send(testSrc, ids[0], nil, "Hello First ID"); sendErr != nil {
+			t.Error(sendErr)
 		}
 	}()
 
 	go func() {
-		err = tsm.Send(ids[1], "Hello Second ID")
-		if err != nil {
-			t.Error(err)
+		if sendErr := m.Send(testSrc, ids[1], nil, "Hello Second ID"); sendErr != nil {
+			t.Error(sendErr)
 		}
 	}()
 
 	go func() {
-		b, err := tsm.Receive(ids[0], time.Duration(5)*time.Second)
-		if err != nil {
-			t.Error(err)
-		}
-		s, ok := b.(string)
-		if !ok {
-			t.Errorf("type was not preseved")
+		b, recvErr := m.Receive(ids[0], 5*time.Second)
+		if recvErr != nil {
+			t.Error(recvErr)
 			return
 		}
-		t.Log(s)
+		if _, ok := b.(string); !ok {
+			t.Error("type was not preseved")
+		}
 	}()
 
-	b, err := tsm.Receive(ids[1], time.Duration(5)*time.Second)
+	b, err := m.Receive(ids[1], 5*time.Second)
 	if err != nil {
 		t.Error(err)
 	}
-
-	s, ok := b.(string)
-	if !ok {
-		t.Errorf("type was not preseved")
-		return
+	if _, ok := b.(string); !ok {
+		t.Error("type was not preseved")
 	}
-	t.Log(s)
 }
 
-func TestSourceCorrelation(t *testing.T) {
-	tsm := New(1)
-	id, err := tsm.ID(t.Context())
+func TestSendChecksPeerAndService(t *testing.T) {
+	m := New(1)
+	expected := &btypes.Address{Net: 2001, Len: 1, MacLen: 6, Mac: []uint8{192, 168, 1, 1, 0xBA, 0xC0}, Adr: []uint8{0x1D}}
+	svc := btypes.ServiceConfirmedReadPropMultiple
+	id, err := m.ID(t.Context(), expected, svc)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer tsm.Put(id)
+	defer m.Put(id)
 
-	expected := &btypes.Address{
-		Net:    1,
-		Len:    1,
-		MacLen: 1,
-		Mac:    []uint8{1},
-		Adr:    []uint8{1},
+	mismatch := &btypes.Address{Net: 2001, Len: 1, MacLen: 6, Mac: []uint8{10, 0, 0, 1, 0xBA, 0xC0}, Adr: []uint8{0x1D}}
+	if err := m.Send(mismatch, id, &svc, "bad"); !errors.Is(err, errSourceMismatch) {
+		t.Fatalf("source: got %v", err)
 	}
-	if err := tsm.ExpectSource(id, expected); err != nil {
+	bare := &btypes.Address{MacLen: 6, Mac: append([]uint8(nil), expected.Mac...)}
+	if err := m.Send(bare, id, &svc, "bare"); !errors.Is(err, errSourceMismatch) {
+		t.Fatalf("bare udp: got %v", err)
+	}
+	wrong := btypes.ServiceConfirmedReadProperty
+	if err := m.Send(expected, id, &wrong, "svc"); !errors.Is(err, errServiceMismatch) {
+		t.Fatalf("service: got %v", err)
+	}
+	if err := m.Send(expected, id, &svc, "ok"); err != nil {
 		t.Fatal(err)
 	}
-
-	mismatch := &btypes.Address{
-		Net:    2,
-		Len:    1,
-		MacLen: 1,
-		Mac:    []uint8{2},
-		Adr:    []uint8{2},
+	if err := m.Send(expected, id, &svc, "again"); !errors.Is(err, errAlreadyAnswered) {
+		t.Fatalf("duplicate: got %v", err)
 	}
-	if err := tsm.SendFrom(mismatch, id, "bad"); err == nil {
-		t.Fatal("expected source mismatch error")
-	}
-
-	done := make(chan struct{})
-	go func() {
-		defer close(done)
-		if err := tsm.SendFrom(expected, id, "ok"); err != nil {
-			t.Errorf("send with expected source failed: %v", err)
-		}
-	}()
-
-	got, err := tsm.Receive(id, time.Second)
+	got, err := m.Receive(id, time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if got != "ok" {
-		t.Fatalf("expected ok, got %v", got)
-	}
-	<-done
-}
-
-func TestSourceCorrelationFallback(t *testing.T) {
-	tsm := New(1)
-	id, err := tsm.ID(t.Context())
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer tsm.Put(id)
-
-	go func() {
-		if sendErr := tsm.Send(id, "fallback"); sendErr != nil {
-			t.Errorf("send failed: %v", sendErr)
-		}
-	}()
-
-	got, err := tsm.Receive(id, time.Second)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got != "fallback" {
-		t.Fatalf("expected fallback, got %v", got)
+		t.Fatalf("got %v", got)
 	}
 }
 
-// TestSourceCorrelationRoutedUDP documents that ExpectSource stores the full
-// routed device address (router Mac + Net + Adr), while datalink Receive only
-// reports UDPToAddress shape (Mac/MacLen). Callers must fold NPDU source into
-// the address passed to SendFrom; a bare UDP source must not match, and a
-// different router IP/port must not match even with the same Net/Adr overlay.
-func TestSourceCorrelationRoutedUDP(t *testing.T) {
-	tsm := New(1)
-	id, err := tsm.ID(t.Context())
+func TestReplyAfterTimeoutIsNotReused(t *testing.T) {
+	m := New(1)
+	src := testSrc
+	svc := btypes.ServiceConfirmedReadProperty
+	id, err := m.ID(context.Background(), src, svc)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer tsm.Put(id)
-
-	routerMac := []uint8{192, 168, 1, 1, 0xBA, 0xC0}
-	expected := &btypes.Address{
-		Net:    2001,
-		Len:    1,
-		MacLen: 6,
-		Mac:    append([]uint8(nil), routerMac...),
-		Adr:    []uint8{0x1D},
+	if _, err := m.Receive(id, 0); err == nil {
+		t.Fatal("expected timeout")
 	}
-	if err := tsm.ExpectSource(id, expected); err != nil {
+	if err := m.Put(id); err != nil {
 		t.Fatal(err)
 	}
-
-	// Datalink shape only — what UDPToAddress / pcap Receive returns.
-	udpSrc := &btypes.Address{
-		MacLen: 6,
-		Mac:    append([]uint8(nil), routerMac...),
-	}
-	if err := tsm.SendFrom(udpSrc, id, "bare-udp"); err == nil {
-		t.Fatal("bare UDP source must not match routed expected address")
+	if err := m.Send(src, id, &svc, "late"); err == nil {
+		t.Fatal("late reply accepted")
 	}
 
-	wrongRouter := &btypes.Address{
-		Net:    2001,
-		Len:    1,
-		MacLen: 6,
-		Mac:    []uint8{10, 0, 0, 1, 0xBA, 0xC0},
-		Adr:    []uint8{0x1D},
-	}
-	if err := tsm.SendFrom(wrongRouter, id, "wrong-host"); err == nil {
-		t.Fatal("different IP/port must not match")
-	}
-
-	// After folding NPDU source onto the same router UDP address (as handleMsg does).
-	folded := &btypes.Address{
-		Net:    2001,
-		Len:    1,
-		MacLen: 6,
-		Mac:    append([]uint8(nil), routerMac...),
-		Adr:    []uint8{0x1D},
-	}
-	done := make(chan struct{})
-	go func() {
-		defer close(done)
-		if err := tsm.SendFrom(folded, id, "ok"); err != nil {
-			t.Errorf("folded routed source failed: %v", err)
+	var reused int
+	for i := 0; i < MaxTransaction; i++ {
+		reused, err = m.ID(context.Background(), src, svc)
+		if err != nil {
+			t.Fatal(err)
 		}
-	}()
-
-	got, err := tsm.Receive(id, time.Second)
+		if reused == id {
+			break
+		}
+		if err := m.Put(reused); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if reused != id {
+		t.Fatal("invoke id was not reused")
+	}
+	if err := m.Send(src, id, &svc, "stale"); err != nil {
+		t.Fatal(err)
+	}
+	if err := m.Put(id); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < MaxTransaction; i++ {
+		reused, err = m.ID(context.Background(), src, svc)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if reused == id {
+			break
+		}
+		if err := m.Put(reused); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := m.Send(src, id, &svc, "fresh"); err != nil {
+		t.Fatalf("stale reply still occupies the transaction: %v", err)
+	}
+	got, err := m.Receive(id, time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got != "ok" {
-		t.Fatalf("expected ok, got %v", got)
+	if got != "fresh" {
+		t.Fatalf("got %v", got)
 	}
-	<-done
 }

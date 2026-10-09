@@ -12,15 +12,12 @@ import (
 func (c *client) WriteProperty(device btypes.Device, wp btypes.PropertyData) error {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	id, err := c.tsm.ID(ctx)
+	device.Addr.SetLength()
+	id, err := c.tsm.ID(ctx, &device.Addr, btypes.ServiceConfirmedWriteProperty)
 	if err != nil {
 		return fmt.Errorf("unable to get an transaction id: %v", err)
 	}
 	defer c.tsm.Put(id)
-	device.Addr.SetLength()
-	if err := c.tsm.ExpectSource(id, &device.Addr); err != nil {
-		return fmt.Errorf("unable to set response source for transaction id %d: %w", id, err)
-	}
 	npdu := &btypes.NPDU{
 		Version:               btypes.ProtocolVersion,
 		Destination:           &device.Addr,

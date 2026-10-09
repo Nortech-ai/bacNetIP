@@ -78,9 +78,9 @@ func (d *Decoder) APDU(a *btypes.APDU) error {
 	case btypes.Error:
 		return d.apduError(a)
 	case btypes.Reject:
-		return fmt.Errorf("Rejected")
+		return d.apduReject(a)
 	case btypes.Abort:
-		return fmt.Errorf("Aborted")
+		return d.apduAbort(a)
 	default:
 		return fmt.Errorf("Unknown PDU type:%d", a.DataType)
 	}
@@ -147,6 +147,18 @@ func (d *Decoder) apduComplexAck(a *btypes.APDU) error {
 func (d *Decoder) apduSimpleAck(a *btypes.APDU) error {
 	d.decode(&a.InvokeId)
 	d.decode(&a.Service)
+	return d.Error()
+}
+
+func (d *Decoder) apduReject(a *btypes.APDU) error {
+	d.decode(&a.InvokeId)
+	d.decode(&a.RejectReason)
+	return d.Error()
+}
+
+func (d *Decoder) apduAbort(a *btypes.APDU) error {
+	d.decode(&a.InvokeId)
+	d.decode(&a.AbortReason)
 	return d.Error()
 }
 

@@ -132,8 +132,6 @@ func NewClient(cb *ClientBuilder) (Client, error) {
 func (c *client) ClientRun() {
 	for {
 		b := c.readBufferPool.Get().([]byte)
-		var addr *btypes.Address
-		var n int
 		addr, n, err := c.dataLink.Receive(b)
 
 		// If the data link is closed, return
@@ -142,7 +140,8 @@ func (c *client) ClientRun() {
 			return
 		}
 
-		// Otherwise if we got an unknown error, continue
+		// Otherwise if we got an unknown error, continue.
+		// Pcap drops datagrams for another local socket with an error here.
 		if err != nil {
 			continue
 		}
@@ -166,17 +165,20 @@ func (c *client) handleMsg(src *btypes.Address, b []byte) {
 		// Remove the BVLC header (decoder already advanced past it via BVLC()).
 		b = b[mtuHeaderLength:]
 		// Annex J Forwarded-NPDU: 4-byte BVLC + 6-octet original source, then NPDU.
-		// Keep the UDP sender (BBMD) as datalink src; NPDU source is folded later.
+		// The origin replaces the BBMD address before NPDU source is folded in.
 		if header.Function == btypes.BacFuncForwardedNPDU {
 			if len(b) < forwardedNPDUOriginLength {
 				c.log.Error("forwarded-npdu missing original source address")
 				return
 			}
+			// Annex J origin, not the BBMD. NPDU source still overlays SNET/SADR.
+			origin := b[:forwardedNPDUOriginLength]
 			b = b[forwardedNPDUOriginLength:]
 			if err := dec.Skip(forwardedNPDUOriginLength); err != nil {
 				c.log.Error(err)
 				return
 			}
+			src = &btypes.Address{Mac: origin, MacLen: forwardedNPDUOriginLength}
 		}
 		networkList, err := dec.NPDU(&npdu)
 		if err != nil {
@@ -193,7 +195,6 @@ func (c *client) handleMsg(src *btypes.Address, b []byte) {
 				c.utsm.Publish(int(npdu.Source.Net), networkList)
 				//return
 			}
-
 		}
 
 		// We want to keep the APDU intact, so we will get a snapshot before decoding
@@ -240,23 +241,23 @@ func (c *client) handleMsg(src *btypes.Address, b []byte) {
 			}
 		case btypes.SimpleAck:
 			c.log.Debug("Received Simple Ack")
-			// Route by invoke-id and expected source to avoid cross-device misdelivery.
-			if err := c.deliver(src, &npdu, apdu.InvokeId, send, "simple ack"); err != nil {
-				return
-			}
+			svc := apdu.Service
+			c.deliver(src, &npdu, apdu.InvokeId, &svc, send)
 		case btypes.ComplexAck:
+			// Segmented ComplexAck is unsupported; requests do not accept segmentation.
 			c.log.Debug("Received Complex Ack")
-			if err := c.deliver(src, &npdu, apdu.InvokeId, send, "complex ack"); err != nil {
-				return
-			}
-		case btypes.ConfirmedServiceRequest:
-			c.log.Debug("Received  Confirmed Service Request")
-			if err := c.deliver(src, &npdu, apdu.InvokeId, send, "confirmed service request"); err != nil {
-				return
-			}
+			svc := apdu.Service
+			c.deliver(src, &npdu, apdu.InvokeId, &svc, send)
 		case btypes.Error:
 			bacErr := fmt.Errorf("error class %s code %s", apdu.Error.Class.String(), apdu.Error.Code.String())
-			_ = c.deliver(src, &npdu, apdu.InvokeId, bacErr, "error")
+			svc := apdu.Service
+			c.deliver(src, &npdu, apdu.InvokeId, &svc, bacErr)
+		case btypes.Reject:
+			rej := fmt.Errorf("reject reason %d", apdu.RejectReason)
+			c.deliver(src, &npdu, apdu.InvokeId, nil, rej)
+		case btypes.Abort:
+			ab := fmt.Errorf("abort reason %d", apdu.AbortReason)
+			c.deliver(src, &npdu, apdu.InvokeId, nil, ab)
 		default:
 			// Ignore it
 			log.WithFields(log.Fields{"raw": b}).Debug("An ignored packet went through")
@@ -265,19 +266,19 @@ func (c *client) handleMsg(src *btypes.Address, b []byte) {
 }
 
 // deliver routes a TSM response by invoke-id to the waiter matching the
-// NPDU-overlaid source address. On failure it logs at debug and returns the error.
-func (c *client) deliver(src *btypes.Address, npdu *btypes.NPDU, invokeID uint8, payload interface{}, label string) error {
-	err := c.tsm.SendFrom(addressWithNPDUSource(src, npdu), int(invokeID), payload)
-	if err != nil {
-		c.log.WithError(err).Debugf("unable to deliver %s invoke-id=%d", label, invokeID)
+// NPDU-overlaid source and, when service is set, the confirmed-service choice.
+// A mismatch is debug-only: another process's reply on a shared port is routine
+// and must not be logged as an error or counted. The transaction stays pending.
+func (c *client) deliver(src *btypes.Address, npdu *btypes.NPDU, invokeID uint8, service *btypes.ServiceConfirmed, payload interface{}) {
+	if c.tsm.Send(addressWithNPDUSource(src, npdu), int(invokeID), service, payload) != nil {
+		c.log.Debug("ignoring reply that does not match the pending request")
 	}
-	return err
 }
 
 // addressWithNPDUSource returns the datalink source with NPDU source network
 // and MS/TP address overlaid when present. Datalink Receive only reports the
 // UDP sender (Mac/MacLen); discoverer I-Am handling stores the same overlay on
-// device.Addr, so reply correlation must apply it before ExpectSource matching.
+// device.Addr, so reply correlation must apply it before matching.
 func addressWithNPDUSource(src *btypes.Address, npdu *btypes.NPDU) *btypes.Address {
 	if src == nil {
 		return nil
