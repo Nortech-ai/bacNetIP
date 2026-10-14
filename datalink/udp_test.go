@@ -8,6 +8,14 @@ import (
 	"golang.org/x/net/bpf"
 )
 
+func TestPcapListenAddrUsesInterfaceIP(t *testing.T) {
+	ip := net.IPv4(192, 168, 0, 165).To4()
+	addr := pcapListenAddr(ip)
+	if !addr.IP.Equal(ip) || addr.Port != 0 || addr.IP.IsUnspecified() {
+		t.Fatalf("listen address %v", addr)
+	}
+}
+
 func TestPcapFilterAndDestination(t *testing.T) {
 	const (
 		localPort  = 49298

@@ -87,10 +87,31 @@ func NewPcapDataLink(inter string, port int, timeout time.Duration) (link DataLi
 		return nil, err
 	}
 
+	// Parse IP before opening the socket so the ephemeral port is bound to the
+	// same address acceptCapturedUDP and myAddress use. A wildcard socket can
+	// source from another address on a multi-subnet interface; the reply then
+	// arrives on that address and is dropped. ListenUDP sets SO_BROADCAST, so
+	// I-Am to the subnet and global broadcast addresses can still be sent.
+	ip, ipNet, err := net.ParseCIDR(addr)
+	if err != nil {
+		handle.Close()
+		return nil, err
+	}
+	localIP := ip.To4()
+	if localIP == nil {
+		handle.Close()
+		return nil, fmt.Errorf("interface %s has no ipv4 address", inter)
+	}
+
+	broadcast := net.IP(make([]byte, 4))
+	for i := range broadcast {
+		broadcast[i] = ipNet.IP[i] | ^ipNet.Mask[i]
+	}
+
 	// Port 0 asks the kernel for an ephemeral source port. Confirmed replies
 	// are unicast back to that port. `port` is the BACnet UDP port devices
 	// send from and broadcasts use (usually 47808), not this socket.
-	conn, err := net.ListenUDP("udp4", &net.UDPAddr{Port: 0})
+	conn, err := net.ListenUDP("udp4", pcapListenAddr(localIP))
 	if err != nil {
 		handle.Close()
 		return nil, fmt.Errorf("failed to create UDP socket: %w", err)
@@ -100,19 +121,6 @@ func NewPcapDataLink(inter string, port int, timeout time.Duration) (link DataLi
 		handle.Close()
 		conn.Close()
 		return nil, fmt.Errorf("pcap socket has no local port")
-	}
-
-	// Parse IP and create addresses
-	ip, ipNet, err := net.ParseCIDR(addr)
-	if err != nil {
-		handle.Close()
-		conn.Close()
-		return nil, err
-	}
-
-	broadcast := net.IP(make([]byte, 4))
-	for i := range broadcast {
-		broadcast[i] = ipNet.IP[i] | ^ipNet.Mask[i]
 	}
 
 	// Keep the filter flat: go-pcap rejects host/broadcast qualifiers and mis-evaluates "ip broadcast".
@@ -132,11 +140,17 @@ func NewPcapDataLink(inter string, port int, timeout time.Duration) (link DataLi
 		},
 		pcapHandle:    handle,
 		interfaceName: inter,
-		localIP:       ip.To4(),
+		localIP:       localIP,
 		localPort:     udpLocal.Port,
 		bacnetPort:    port,
 		broadcastIP:   broadcast.To4(),
 	}, nil
+}
+
+// pcapListenAddr is the ephemeral unicast socket. Port 0 is assigned by the
+// kernel. The IP is the interface address the capture filter accepts.
+func pcapListenAddr(ip net.IP) *net.UDPAddr {
+	return &net.UDPAddr{IP: ip.To4(), Port: 0}
 }
 
 // pcapCaptureFilter stays flat: udp and (dst port <local> or dst port <bacnet>).
