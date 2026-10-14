@@ -24,12 +24,14 @@ func (a *Address) IsBroadcast() bool {
 	return false
 }
 
-//SetLength if device is of type ms-tp then set address len to 1
+// SetLength sets Len from Adr. An MS/TP station is one octet. A routed
+// BACnet/IP MAC is six octets; publishing Len 1 would shift every field
+// after the address.
 func (a *Address) SetLength() {
-	if len(a.Adr) > 0 {
-		a.Len = 1
+	if len(a.Adr) == 0 {
+		return
 	}
-	return
+	a.Len = uint8(len(a.Adr))
 }
 
 func (a *Address) SetBroadcast(b bool) {

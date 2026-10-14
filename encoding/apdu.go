@@ -63,6 +63,9 @@ func (d *Decoder) APDU(a *btypes.APDU) error {
 	a.SegmentedResponseAccepted = meta.segmentedResponseAccepted()
 	a.MoreFollows = meta.moreFollows()
 	a.DataType = meta.DataType()
+	if a.DataType == btypes.Abort {
+		a.FromServer = byte(meta)&1 != 0
+	}
 
 	switch a.DataType {
 	case btypes.ComplexAck:
@@ -78,9 +81,9 @@ func (d *Decoder) APDU(a *btypes.APDU) error {
 	case btypes.Error:
 		return d.apduError(a)
 	case btypes.Reject:
-		return fmt.Errorf("Rejected")
+		return d.apduReject(a)
 	case btypes.Abort:
-		return fmt.Errorf("Aborted")
+		return d.apduAbort(a)
 	default:
 		return fmt.Errorf("Unknown PDU type:%d", a.DataType)
 	}
@@ -150,6 +153,18 @@ func (d *Decoder) apduSimpleAck(a *btypes.APDU) error {
 	return d.Error()
 }
 
+func (d *Decoder) apduReject(a *btypes.APDU) error {
+	d.decode(&a.InvokeId)
+	d.decode(&a.RejectReason)
+	return d.Error()
+}
+
+func (d *Decoder) apduAbort(a *btypes.APDU) error {
+	d.decode(&a.InvokeId)
+	d.decode(&a.AbortReason)
+	return d.Error()
+}
+
 func (d *Decoder) apduUnconfirmed(a *btypes.APDU) error {
 	d.decode(&a.UnconfirmedService)
 	a.RawData = make([]byte, d.len())
@@ -180,7 +195,7 @@ const (
 	apduMaskSegmented         = 1 << 3
 	apduMaskMoreFollows       = 1 << 2
 	apduMaskSegmentedAccepted = 1 << 1
-	// Bit 0 is reserved
+	// Bit 0 is reserved, except on Abort where it is the server bit.
 )
 
 func (meta *APDUMetadata) setInfoMask(b bool, mask byte) {

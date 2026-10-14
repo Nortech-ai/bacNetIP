@@ -6,6 +6,7 @@ import (
 	"github.com/Nortech-ai/bacNetIP/btypes"
 	"github.com/Nortech-ai/bacNetIP/datalink"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestWriteProperty(t *testing.T) {
@@ -72,20 +73,17 @@ func TestWriteProperty(t *testing.T) {
 	}
 
 	// Mock the real response from your network dump
-	link.Received = []datalink.ReceivedMessage{
-		{
-			Data: []byte{0x81, 0x0a, 0x00, 0x0d,
-				0x1, 0x08, 0x00, 0x03, 0x01, 0x6c,
-				0x20, 0x01, 0x0f,
-			},
-			Src: &device.Addr,
+	link.Inject(datalink.ReceivedMessage{
+		Data: []byte{0x81, 0x0a, 0x00, 0x0d,
+			0x1, 0x08, 0x00, 0x03, 0x01, 0x6c,
+			0x20, 0x01, 0x0f,
 		},
-	}
+		Src: &device.Addr,
+	})
 
 	err = c.WriteProperty(device, wp)
 	assert.NoError(t, err)
 
-	// Verify the message was sent correctly
-	assert.Equal(t, 1, len(link.Sent))
+	require.Len(t, link.Sent, 1)
 	assert.Equal(t, expectedSent[0].Dest, link.Sent[0].Dest)
 }

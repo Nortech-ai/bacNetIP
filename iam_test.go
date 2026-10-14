@@ -10,6 +10,7 @@ import (
 	"github.com/Nortech-ai/bacNetIP/datalink"
 	pprint "github.com/Nortech-ai/bacNetIP/helpers/print"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var iface = "enp0s31f6"
@@ -69,12 +70,10 @@ func TestIAm(t *testing.T) {
 		},
 	}
 
-	link.Received = []datalink.ReceivedMessage{
-		{
-			Data: []byte{0x81, 0xb, 0x0, 0x18, 0x1, 0x8, 0x6, 0x41, 0x1, 0x1, 0x10, 0x0, 0xc4, 0x2, 0x2, 0x71, 0x65, 0x22, 0x1, 0xe0, 0x91, 0x0, 0x21, 0x18},
-			Src:  &device.Addr,
-		},
-	}
+	link.Inject(datalink.ReceivedMessage{
+		Data: []byte{0x81, 0xb, 0x0, 0x18, 0x1, 0x8, 0x6, 0x41, 0x1, 0x1, 0x10, 0x0, 0xc4, 0x2, 0x2, 0x71, 0x65, 0x22, 0x1, 0xe0, 0x91, 0x0, 0x21, 0x18},
+		Src:  &device.Addr,
+	})
 
 	// Send a WhoIs
 	devices, err := c.WhoIs(&WhoIsOpts{
@@ -85,6 +84,6 @@ func TestIAm(t *testing.T) {
 	})
 	assert.NoError(t, err)
 
-	assert.Equal(t, len(devices), 1)
+	require.Len(t, devices, 1)
 	assert.Equal(t, devices[0], device)
 }

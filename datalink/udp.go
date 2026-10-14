@@ -2,6 +2,7 @@ package datalink
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"strings"
@@ -17,6 +18,10 @@ import (
 // the bacnet protocol is between 0xBAC0 and 0xBAC9
 const DefaultPort = 0xBAC0 //47808
 
+// errNotForSocket is returned when pcap sees a datagram for another socket.
+// ClientRun skips it. It is not logged.
+var errNotForSocket = errors.New("udp datagram is not for this socket")
+
 type udpDataLink struct {
 	netInterface                *net.Interface
 	myAddress, broadcastAddress *btypes.Address
@@ -28,6 +33,12 @@ type pcapDataLink struct {
 	udpDataLink
 	pcapHandle    *pcap.Handle
 	interfaceName string
+	// localIP/localPort is the ephemeral send socket. myAddress keeps the
+	// configured BACnet port for callers that want that port.
+	localIP     net.IP
+	localPort   int
+	bacnetPort  int
+	broadcastIP net.IP
 }
 
 /*
@@ -69,13 +80,6 @@ func NewPcapDataLink(inter string, port int, timeout time.Duration) (link DataLi
 		return nil, fmt.Errorf("failed to open pcap handle: %w", err)
 	}
 
-	// Set filter for BACnet traffic with specific source port
-	err = handle.SetBPFFilter(fmt.Sprintf("udp src port %d", port))
-	if err != nil {
-		handle.Close()
-		return nil, fmt.Errorf("failed to set BPF filter: %w", err)
-	}
-
 	// Get interface address for myAddress
 	addr, err := FindCIDRAddress(inter)
 	if err != nil {
@@ -83,20 +87,20 @@ func NewPcapDataLink(inter string, port int, timeout time.Duration) (link DataLi
 		return nil, err
 	}
 
-	// Create UDP socket for sending (without binding to port)
-	udpAddr := &net.UDPAddr{Port: 0} // Port 0 means any available port
-	conn, err := net.ListenUDP("udp4", udpAddr)
-	if err != nil {
-		handle.Close()
-		return nil, fmt.Errorf("failed to create UDP socket: %w", err)
-	}
-
-	// Parse IP and create addresses
+	// Parse IP before opening the socket so the ephemeral port is bound to the
+	// same address acceptCapturedUDP and myAddress use. A wildcard socket can
+	// source from another address on a multi-subnet interface; the reply then
+	// arrives on that address and is dropped. ListenUDP sets SO_BROADCAST, so
+	// I-Am to the subnet and global broadcast addresses can still be sent.
 	ip, ipNet, err := net.ParseCIDR(addr)
 	if err != nil {
 		handle.Close()
-		conn.Close()
 		return nil, err
+	}
+	localIP := ip.To4()
+	if localIP == nil {
+		handle.Close()
+		return nil, fmt.Errorf("interface %s has no ipv4 address", inter)
 	}
 
 	broadcast := net.IP(make([]byte, 4))
@@ -104,15 +108,67 @@ func NewPcapDataLink(inter string, port int, timeout time.Duration) (link DataLi
 		broadcast[i] = ipNet.IP[i] | ^ipNet.Mask[i]
 	}
 
+	// Port 0 asks the kernel for an ephemeral source port. Confirmed replies
+	// are unicast back to that port. `port` is the BACnet UDP port devices
+	// send from and broadcasts use (usually 47808), not this socket.
+	conn, err := net.ListenUDP("udp4", pcapListenAddr(localIP))
+	if err != nil {
+		handle.Close()
+		return nil, fmt.Errorf("failed to create UDP socket: %w", err)
+	}
+	udpLocal, ok := conn.LocalAddr().(*net.UDPAddr)
+	if !ok || udpLocal.Port == 0 {
+		handle.Close()
+		conn.Close()
+		return nil, fmt.Errorf("pcap socket has no local port")
+	}
+
+	// Keep the filter flat: go-pcap rejects host/broadcast qualifiers and mis-evaluates "ip broadcast".
+	// Receive drops unicast to the BACnet port; only this socket and broadcasts stay.
+	err = handle.SetBPFFilter(pcapCaptureFilter(udpLocal.Port, port))
+	if err != nil {
+		handle.Close()
+		conn.Close()
+		return nil, fmt.Errorf("failed to set BPF filter: %w", err)
+	}
+
 	return &pcapDataLink{
 		udpDataLink: udpDataLink{
 			listener:         conn,
 			myAddress:        IPPortToAddress(ip, port),
-			broadcastAddress: IPPortToAddress(broadcast, DefaultPort),
+			broadcastAddress: IPPortToAddress(broadcast, port),
 		},
 		pcapHandle:    handle,
 		interfaceName: inter,
+		localIP:       localIP,
+		localPort:     udpLocal.Port,
+		bacnetPort:    port,
+		broadcastIP:   broadcast.To4(),
 	}, nil
+}
+
+// pcapListenAddr is the ephemeral unicast socket. Port 0 is assigned by the
+// kernel. The IP is the interface address the capture filter accepts.
+func pcapListenAddr(ip net.IP) *net.UDPAddr {
+	return &net.UDPAddr{IP: ip.To4(), Port: 0}
+}
+
+// pcapCaptureFilter stays flat: udp and (dst port <local> or dst port <bacnet>).
+// go-pcap rejects host/broadcast qualifiers and mis-evaluates "ip broadcast".
+func pcapCaptureFilter(localPort, bacnetPort int) string {
+	return fmt.Sprintf("udp and (dst port %d or dst port %d)", localPort, bacnetPort)
+}
+
+// acceptCapturedUDP keeps unicast to this socket, and broadcasts on the BACnet port.
+func acceptCapturedUDP(dstIP net.IP, dstPort, localPort, bacnetPort int, localIP, broadcastIP net.IP) bool {
+	ip := dstIP.To4()
+	if ip == nil {
+		return false
+	}
+	if dstPort == localPort && ip.Equal(localIP) {
+		return true
+	}
+	return dstPort == bacnetPort && (ip.Equal(broadcastIP) || ip.Equal(net.IPv4bcast))
 }
 
 /*
@@ -154,7 +210,7 @@ func dataLink(ipAddr string, port int) (DataLink, error) {
 	return &udpDataLink{
 		listener:         conn,
 		myAddress:        IPPortToAddress(ip, port),
-		broadcastAddress: IPPortToAddress(broadcast, DefaultPort),
+		broadcastAddress: IPPortToAddress(broadcast, port),
 	}, nil
 }
 
@@ -213,22 +269,33 @@ func (c *pcapDataLink) Close() error {
 }
 
 func (c *pcapDataLink) Receive(data []byte) (*btypes.Address, int, error) {
+	src, dstIP, dstPort, n, err := c.readPacket(data)
+	if err != nil {
+		return nil, n, err
+	}
+	if !acceptCapturedUDP(dstIP, dstPort, c.localPort, c.bacnetPort, c.localIP, c.broadcastIP) {
+		return nil, 0, errNotForSocket
+	}
+	return src, n, nil
+}
+
+func (c *pcapDataLink) readPacket(data []byte) (*btypes.Address, net.IP, int, int, error) {
 	// Capture packet using pcap
 	packetData, _, err := c.pcapHandle.ReadPacketData()
 	if err != nil {
-		return nil, 0, err
+		return nil, nil, 0, 0, err
 	}
 
 	parsedPacket := gopacket.NewPacket(packetData, layers.LayerTypeEthernet, gopacket.NoCopy)
 
 	ipLayer := parsedPacket.Layer(layers.LayerTypeIPv4)
 	if ipLayer == nil {
-		return nil, 0, fmt.Errorf("no ip layer found")
+		return nil, nil, 0, 0, fmt.Errorf("no ip layer found")
 	}
 
 	udpLayer := parsedPacket.Layer(layers.LayerTypeUDP)
 	if udpLayer == nil {
-		return nil, 0, fmt.Errorf("no udp layer found")
+		return nil, nil, 0, 0, fmt.Errorf("no udp layer found")
 	}
 
 	// Copy packet data to the provided buffer
@@ -237,15 +304,21 @@ func (c *pcapDataLink) Receive(data []byte) (*btypes.Address, int, error) {
 	// Capture the address from the ip layer
 	ip, ok := ipLayer.(*layers.IPv4)
 	if !ok {
-		return nil, 0, fmt.Errorf("ip layer is not a ipv4 layer")
+		return nil, nil, 0, 0, fmt.Errorf("ip layer is not a ipv4 layer")
+	}
+	udp, ok := udpLayer.(*layers.UDP)
+	if !ok {
+		return nil, nil, 0, 0, fmt.Errorf("udp layer is not a udp layer")
 	}
 
-	srcAddr := &net.UDPAddr{
-		IP:   ip.SrcIP,
-		Port: int(udpLayer.(*layers.UDP).SrcPort),
+	srcIP := ip.SrcIP.To4()
+	dstIP := ip.DstIP.To4()
+	if srcIP == nil || dstIP == nil {
+		return nil, nil, 0, 0, fmt.Errorf("ip layer is not ipv4")
 	}
-	adr := UDPToAddress(srcAddr)
-	return adr, n, nil
+
+	src := UDPToAddress(&net.UDPAddr{IP: srcIP, Port: int(udp.SrcPort)})
+	return src, dstIP, int(udp.DstPort), n, nil
 }
 
 // IPPortToAddress converts a given udp address into a bacnet address

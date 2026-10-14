@@ -2,6 +2,7 @@ package utsm
 
 import (
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 )
@@ -9,7 +10,7 @@ import (
 func sub(t *testing.T, m *Manager, start, end int) {
 	b, err := m.Subscribe(start, end)
 	if err != nil {
-		t.Fatal(err)
+		t.Error(err)
 	}
 
 	t.Logf("[%d, %d] %v", start, end, b)
@@ -28,8 +29,20 @@ func TestUTSM(t *testing.T) {
 	}
 	m := NewManager(opts...)
 
-	go publisher(t, m)
-	go sub(t, m, 9, 20)
-	go sub(t, m, 0, 2)
+	var wg sync.WaitGroup
+	wg.Add(3)
+	go func() {
+		defer wg.Done()
+		publisher(t, m)
+	}()
+	go func() {
+		defer wg.Done()
+		sub(t, m, 9, 20)
+	}()
+	go func() {
+		defer wg.Done()
+		sub(t, m, 0, 2)
+	}()
 	sub(t, m, 10, 30)
+	wg.Wait()
 }

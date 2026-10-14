@@ -2,11 +2,19 @@ package tsm
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
 
 	"github.com/Nortech-ai/bacNetIP/btypes"
+)
+
+var (
+	errNotReceiving    = errors.New("bacnet transaction is not receiving")
+	errSourceMismatch  = errors.New("bacnet reply source mismatch")
+	errServiceMismatch = errors.New("bacnet reply service mismatch")
+	errAlreadyAnswered = errors.New("bacnet reply already delivered")
 )
 
 // MaxTransaction is the default max number of transactions that can occur
@@ -24,6 +32,7 @@ type state struct {
 	requestTimer int
 	data         chan interface{}
 	source       *btypes.Address
+	service      btypes.ServiceConfirmed
 }
 
 // TSM is the transaction state manager. It handles passing data to other
@@ -31,7 +40,6 @@ type state struct {
 type TSM struct {
 	mutex  sync.Mutex
 	states map[int]*state
-	pool   sync.Pool
 	free   struct {
 		id    chan int
 		space chan struct{}
@@ -41,14 +49,7 @@ type TSM struct {
 // New creates a new transaction manager
 func New(size int) *TSM {
 	t := &TSM{
-		states: make(map[int]*state), pool: sync.Pool{
-			// Operation doesn't include a new channel. We want that done when a get is
-			// done since we close all channels when putting into the pool.
-			New: func() interface{} {
-				s := new(state)
-				return s
-			},
-		},
+		states: make(map[int]*state),
 	}
 
 	// Generate free ids.
@@ -66,58 +67,30 @@ func New(size int) *TSM {
 	return t
 }
 
-// Send data to invoked id
-func (t *TSM) Send(id int, b interface{}) error {
-	return t.send(nil, id, b)
-}
-
-// SendFrom sends data to invoked id while validating expected source, if set.
-func (t *TSM) SendFrom(src *btypes.Address, id int, b interface{}) error {
-	return t.send(src, id, b)
-}
-
-func (t *TSM) send(src *btypes.Address, id int, b interface{}) error {
-	t.mutex.Lock()
-	s, ok := t.states[id]
-	t.mutex.Unlock()
-
-	if !ok {
-		return fmt.Errorf("id %d is not receiving", id)
-	}
-	if s.source != nil {
-		// Correlation guard: ignore/don't deliver payloads from unexpected sources.
-		if src == nil {
-			return fmt.Errorf("id %d source mismatch: expected source set but got nil", id)
-		}
-		if !addressMatches(s.source, src) {
-			return fmt.Errorf("id %d source mismatch: expected %+v got %+v", id, *s.source, *src)
-		}
-	}
-	s.data <- b
-	return nil
-}
-
-// ExpectSource configures source correlation for responses delivered to id.
-func (t *TSM) ExpectSource(id int, src *btypes.Address) error {
-	if src == nil {
-		return fmt.Errorf("nil source for id %d", id)
-	}
+// Send delivers b to the transaction id. src must match the peer recorded by ID.
+// A non-nil service must match the confirmed-service choice recorded by ID.
+// Nil service skips that check so Reject and Abort, which carry no service
+// choice, can still complete the transaction. A mismatch or a second reply
+// leaves the transaction pending.
+func (t *TSM) Send(src *btypes.Address, id int, service *btypes.ServiceConfirmed, b interface{}) error {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 	s, ok := t.states[id]
 	if !ok {
-		return fmt.Errorf("id %d does not exist in the transactions", id)
+		return errNotReceiving
 	}
-	// Store a defensive copy so later caller mutation does not change correlation.
-	srcCopy := *src
-	if src.Mac != nil {
-		srcCopy.Mac = append([]uint8(nil), src.Mac...)
+	if s.source == nil || !addressMatches(s.source, src) {
+		return errSourceMismatch
 	}
-	if src.Adr != nil {
-		srcCopy.Adr = append([]uint8(nil), src.Adr...)
+	if service != nil && *service != s.service {
+		return errServiceMismatch
 	}
-	s.source = &srcCopy
-	return nil
+	select {
+	case s.data <- b:
+		return nil
+	default:
+		return errAlreadyAnswered
+	}
 }
 
 // Receive attempts to receive a byte array from the invoked id. If a time out
@@ -128,7 +101,7 @@ func (t *TSM) Receive(id int, timeout time.Duration) (interface{}, error) {
 	t.mutex.Unlock()
 
 	if !ok {
-		return nil, fmt.Errorf("id %d is not sending", id)
+		return nil, errNotReceiving
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
@@ -136,7 +109,10 @@ func (t *TSM) Receive(id int, timeout time.Duration) (interface{}, error) {
 
 	// Wait for data
 	select {
-	case b := <-s.data:
+	case b, ok := <-s.data:
+		if !ok {
+			return nil, errNotReceiving
+		}
 		return b, nil
 	case <-ctx.Done():
 		return nil, fmt.Errorf("receive timed out (%v)", timeout)
@@ -144,8 +120,9 @@ func (t *TSM) Receive(id int, timeout time.Duration) (interface{}, error) {
 
 }
 
-// ID returns the invoke id that was used to save the state of this connection.
-func (t *TSM) ID(ctx context.Context) (int, error) {
+// ID reserves an invoke id and records the peer and confirmed-service choice
+// the reply must match. src is the address the request is sent to.
+func (t *TSM) ID(ctx context.Context, src *btypes.Address, service btypes.ServiceConfirmed) (int, error) {
 	var id int
 	select {
 	case <-t.free.space:
@@ -160,12 +137,12 @@ func (t *TSM) ID(ctx context.Context) (int, error) {
 		return 0, fmt.Errorf("no free space: %v", err)
 	}
 
-	// skip error checking, since we control new generation and what is put in the pool.
-	s := t.pool.Get().(*state)
-	s.state = idle
-	s.requestTimer = 0 // TODO: apdu_timeout
-	s.data = make(chan interface{})
-	s.source = nil
+	s := &state{
+		state:   idle,
+		data:    make(chan interface{}, 1),
+		source:  copyAddress(src),
+		service: service,
+	}
 
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
@@ -184,11 +161,24 @@ func (t *TSM) Put(id int) error {
 	}
 
 	close(s.data)
-	t.pool.Put(s)
 	t.free.id <- id
 	t.free.space <- struct{}{}
 	delete(t.states, id)
 	return nil
+}
+
+func copyAddress(src *btypes.Address) *btypes.Address {
+	if src == nil {
+		return nil
+	}
+	out := *src
+	if src.Mac != nil {
+		out.Mac = append([]uint8(nil), src.Mac...)
+	}
+	if src.Adr != nil {
+		out.Adr = append([]uint8(nil), src.Adr...)
+	}
+	return &out
 }
 
 func addressMatches(expected, actual *btypes.Address) bool {

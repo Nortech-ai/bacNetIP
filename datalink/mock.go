@@ -1,7 +1,8 @@
 package datalink
 
 import (
-	"fmt"
+	"io"
+	"sync"
 
 	"github.com/Nortech-ai/bacNetIP/btypes"
 )
@@ -22,15 +23,20 @@ type MockDataLink struct {
 	// Messages that have been sent with the Send method
 	Sent []SentMessage
 
-	// Messages that we are simulating receiving with the Receive method
+	// Received is delivered by Receive immediately. Inject holds replies until Send.
 	Received []ReceivedMessage
 
 	MyAddress        *btypes.Address
 	BroadcastAddress *btypes.Address
+
+	pending []ReceivedMessage
+	closed  bool
+	mu      sync.Mutex
+	cond    *sync.Cond
 }
 
 func NewMockDataLink() *MockDataLink {
-	return &MockDataLink{
+	m := &MockDataLink{
 		MyAddress: &btypes.Address{
 			Net: 1,
 			Adr: []uint8{1, 2, 3, 4},
@@ -42,6 +48,8 @@ func NewMockDataLink() *MockDataLink {
 			Len: 4,
 		},
 	}
+	m.cond = sync.NewCond(&m.mu)
+	return m
 }
 
 func (m *MockDataLink) GetMyAddress() *btypes.Address {
@@ -53,21 +61,43 @@ func (m *MockDataLink) GetBroadcastAddress() *btypes.Address {
 }
 
 func (m *MockDataLink) Send(data []byte, npdu *btypes.NPDU, dest *btypes.Address) (int, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.Sent = append(m.Sent, SentMessage{Data: data, NPDU: npdu, Dest: dest})
+	if len(m.pending) > 0 {
+		m.Received = append(m.Received, m.pending...)
+		m.pending = nil
+		m.cond.Broadcast()
+	}
 	return len(data), nil
 }
 
 func (m *MockDataLink) Receive(data []byte) (*btypes.Address, int, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for len(m.Received) == 0 && !m.closed {
+		m.cond.Wait()
+	}
 	if len(m.Received) == 0 {
-		return nil, 0, fmt.Errorf("no received messages")
+		return nil, 0, io.EOF
 	}
 	received := m.Received[0]
 	m.Received = m.Received[1:]
+	n := copy(data, received.Data)
+	return received.Src, n, received.Error
+}
 
-	copy(data, received.Data)
-	return received.Src, len(received.Data), received.Error
+// Inject queues replies. They are delivered on the next Send, after the request exists.
+func (m *MockDataLink) Inject(msgs ...ReceivedMessage) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.pending = append(m.pending, msgs...)
 }
 
 func (m *MockDataLink) Close() error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.closed = true
+	m.cond.Broadcast()
 	return nil
 }

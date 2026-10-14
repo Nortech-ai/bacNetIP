@@ -56,17 +56,12 @@ func (c *client) WhoIs(wh *WhoIsOpts) ([]btypes.Device, error) {
 		start = low
 		end = high
 	}
-	// Run in parallel
-	errChan := make(chan error)
-	go func() {
-		_, err = c.Send(dest, npdu, enc.Bytes(), nil)
-		errChan <- err
-	}()
-	values, err := c.utsm.Subscribe(start, end)
-	if err != nil {
-		return nil, err
-	}
-	err = <-errChan
+	// Register before sending. A reply released by Send must find this subscriber.
+	var sendErr error
+	values, err := c.utsm.Collect(start, end, func() error {
+		_, sendErr = c.Send(dest, npdu, enc.Bytes(), nil)
+		return sendErr
+	})
 	if err != nil {
 		return nil, err
 	}

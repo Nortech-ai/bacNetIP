@@ -15,6 +15,7 @@ type subscriber struct {
 	lastReceived        time.Time
 	// Data channel is used for data transfer between subscriber and publisher
 	data  chan interface{}
+	done  chan struct{}
 	mutex *sync.Mutex
 }
 
@@ -51,9 +52,27 @@ func (s *subscriber) getTimeout() time.Duration {
 
 // Subscribe receives data meant for ids that fall between the start and end range.
 func (m *Manager) Subscribe(start int, end int, options ...SubscriberOption) ([]interface{}, error) {
+	return m.collect(start, end, nil, options...)
+}
+
+// Collect registers a subscriber, runs beforeWait, then receives until timeout.
+// beforeWait runs after registration so a reply released by that send is kept.
+func (m *Manager) Collect(start, end int, beforeWait func() error) ([]interface{}, error) {
+	return m.collect(start, end, beforeWait)
+}
+
+func (m *Manager) collect(start, end int, beforeWait func() error, options ...SubscriberOption) ([]interface{}, error) {
 	var store []interface{}
 	s := m.newSubscriber(start, end, options)
-	defer m.removeSubscriber(s)
+	defer func() {
+		close(s.done)
+		m.removeSubscriber(s)
+	}()
+	if beforeWait != nil {
+		if err := beforeWait(); err != nil {
+			return nil, err
+		}
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), s.timeout)
 	defer cancel()
