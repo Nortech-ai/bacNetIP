@@ -503,7 +503,8 @@ func TestRejectAndAbortFollowThePendingRequest(t *testing.T) {
 	}{
 		{"reject from another source", udpAddr(net.IPv4(10, 0, 0, 1), datalink.DefaultPort), btypes.Reject, 1, btypes.ServiceConfirmedReadPropMultiple, 0, ""},
 		{"matching reject", router, btypes.Reject, 9, btypes.ServiceConfirmedReadPropMultiple, 0, "reject reason 9"},
-		{"matching abort", router, btypes.Abort, 1, btypes.ServiceConfirmedWriteProperty, 0, "abort reason 1"},
+		{"client abort", router, btypes.Abort, 1, btypes.ServiceConfirmedReadPropMultiple, 0, ""},
+		{"matching abort", router, btypes.Abort | 1, 1, btypes.ServiceConfirmedWriteProperty, 0, "abort reason 1"},
 		{"error wrong service", router, btypes.Error, 0, btypes.ServiceConfirmedReadPropMultiple, btypes.ServiceConfirmedReadProperty, ""},
 		{"matching error", router, btypes.Error, 0, btypes.ServiceConfirmedReadPropMultiple, btypes.ServiceConfirmedReadPropMultiple, "error class"},
 	}

@@ -63,6 +63,9 @@ func (d *Decoder) APDU(a *btypes.APDU) error {
 	a.SegmentedResponseAccepted = meta.segmentedResponseAccepted()
 	a.MoreFollows = meta.moreFollows()
 	a.DataType = meta.DataType()
+	if a.DataType == btypes.Abort {
+		a.FromServer = byte(meta)&1 != 0
+	}
 
 	switch a.DataType {
 	case btypes.ComplexAck:
@@ -192,7 +195,7 @@ const (
 	apduMaskSegmented         = 1 << 3
 	apduMaskMoreFollows       = 1 << 2
 	apduMaskSegmentedAccepted = 1 << 1
-	// Bit 0 is reserved
+	// Bit 0 is reserved, except on Abort where it is the server bit.
 )
 
 func (meta *APDUMetadata) setInfoMask(b bool, mask byte) {

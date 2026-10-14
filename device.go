@@ -255,6 +255,12 @@ func (c *client) handleMsg(src *btypes.Address, b []byte) {
 			rej := fmt.Errorf("reject reason %d", apdu.RejectReason)
 			c.deliver(src, &npdu, apdu.InvokeId, nil, rej)
 		case btypes.Abort:
+			// 0x70 is a client Abort of a request the peer sent to us. Invoke
+			// ids in that direction are independent, so it must not finish our
+			// own read or write. Only 0x71 aborts our request.
+			if !apdu.FromServer {
+				return
+			}
 			ab := fmt.Errorf("abort reason %d", apdu.AbortReason)
 			c.deliver(src, &npdu, apdu.InvokeId, nil, ab)
 		default:
