@@ -315,6 +315,24 @@ type SetBroadcastType struct { //used to override the header.Function
 	BacFunc btypes.BacFunc
 }
 
+// broadcastMAC reports whether dest is the datalink subnet broadcast.
+// GetBroadcastAddress stores that address as a 6-byte MAC with MacLen 6.
+func (c *client) broadcastMAC(dest btypes.Address) bool {
+	if c.dataLink == nil {
+		return false
+	}
+	b := c.dataLink.GetBroadcastAddress()
+	if b == nil || len(b.Mac) == 0 || len(dest.Mac) != len(b.Mac) {
+		return false
+	}
+	for i := range b.Mac {
+		if dest.Mac[i] != b.Mac[i] {
+			return false
+		}
+	}
+	return true
+}
+
 // Send transfers the raw apdu byte slice to the destination address.
 func (c *client) Send(dest btypes.Address, npdu *btypes.NPDU, data []byte, broadcastType *SetBroadcastType) (int, error) {
 	//broadcastType = &SetBroadcastType{}
@@ -327,8 +345,10 @@ func (c *client) Send(dest btypes.Address, npdu *btypes.NPDU, data []byte, broad
 		// see http://www.bacnet.org/Tutorial/HMN-Overview/sld033.
 		// see https://github.com/JoelBender/bacpypes/blob/9fca3f608a97a20807cd188689a2b9ff60b05085/doc/source/gettingstarted/gettingstarted001.rst#udp-communications-issues
 		header.Function = btypes.BacFuncUnicast
-	} else if dest.IsBroadcast() || dest.IsSubBroadcast() {
+	} else if dest.IsBroadcast() || dest.IsSubBroadcast() || c.broadcastMAC(dest) {
 		// SET BROADCAST FLAG
+		// The interface broadcast address keeps a 6-byte MAC, so IsBroadcast
+		// (net 65535 or MacLen 0) is false for a local Who-Is. Match that MAC.
 		header.Function = btypes.BacFuncBroadcast
 	} else {
 		// SET UNICAST FLAG

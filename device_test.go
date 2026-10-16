@@ -12,6 +12,7 @@ import (
 	"github.com/Nortech-ai/bacNetIP/btypes/ndpu"
 	"github.com/Nortech-ai/bacNetIP/datalink"
 	"github.com/Nortech-ai/bacNetIP/encoding"
+	"github.com/Nortech-ai/bacNetIP/utsm"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -593,4 +594,42 @@ func networkLayerPacket(t *testing.T) []byte {
 	require.NoError(t, err)
 	require.NoError(t, enc.Error())
 	return enc.Bytes()
+}
+
+func TestLocalWhoIsBroadcastAndDeviceReadUnicast(t *testing.T) {
+	link := datalink.NewMockDataLink()
+	bcast := datalink.IPPortToAddress(net.IPv4(192, 168, 1, 255).To4(), 0xBAC0)
+	require.False(t, bcast.IsBroadcast())
+	require.Len(t, bcast.Mac, 6)
+	link.BroadcastAddress = bcast
+
+	c, err := NewClient(&ClientBuilder{
+		DataLink: link,
+		Ip:       "192.168.1.100",
+	})
+	require.NoError(t, err)
+	defer c.Close()
+	cli := c.(*client)
+	cli.utsm = utsm.NewManager(
+		utsm.DefaultSubscriberTimeout(50*time.Millisecond),
+		utsm.DefaultSubscriberLastReceivedTimeout(50*time.Millisecond),
+	)
+
+	_, err = c.WhoIs(&WhoIsOpts{Low: 1, High: 2, GlobalBroadcast: false, NetworkNumber: 0})
+	require.NoError(t, err)
+	require.NotEmpty(t, link.Sent)
+	assert.Equal(t, btypes.BacFuncBroadcast, btypes.BacFunc(link.Sent[0].Data[1]))
+
+	link.Sent = nil
+	_, err = c.WhoIs(&WhoIsOpts{Low: 1, High: 2, GlobalBroadcast: true})
+	require.NoError(t, err)
+	require.NotEmpty(t, link.Sent)
+	assert.Equal(t, btypes.BacFuncBroadcast, btypes.BacFunc(link.Sent[0].Data[1]))
+
+	deviceIP := datalink.IPPortToAddress(net.IPv4(192, 168, 1, 50).To4(), 0xBAC0)
+	link.Sent = nil
+	_, err = cli.Send(*deviceIP, &btypes.NPDU{Version: btypes.ProtocolVersion}, []byte{0x01}, nil)
+	require.NoError(t, err)
+	require.NotEmpty(t, link.Sent)
+	assert.Equal(t, btypes.BacFuncUnicast, btypes.BacFunc(link.Sent[0].Data[1]))
 }
