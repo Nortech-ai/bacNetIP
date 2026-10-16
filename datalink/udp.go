@@ -23,9 +23,7 @@ const DefaultPort = 0xBAC0 //47808
 var errNotForSocket = errors.New("udp datagram is not for this socket")
 
 type udpDataLink struct {
-	netInterface                *net.Interface
 	myAddress, broadcastAddress *btypes.Address
-	port                        int
 	listener                    *net.UDPConn
 }
 

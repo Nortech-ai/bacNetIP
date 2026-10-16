@@ -3,12 +3,12 @@ package cmd
 import (
 	"fmt"
 
-	log "github.com/sirupsen/logrus"
-	"github.com/spf13/cobra"
-	"github.com/Nortech-ai/bacNetIP"
+	bacnet "github.com/Nortech-ai/bacNetIP"
 	"github.com/Nortech-ai/bacNetIP/btypes"
 	"github.com/Nortech-ai/bacNetIP/helpers/data"
 	ip2bytes "github.com/Nortech-ai/bacNetIP/helpers/ipbytes"
+	log "github.com/sirupsen/logrus"
+	"github.com/spf13/cobra"
 )
 
 // readMultiCmd represents the readMultiCmd command
@@ -83,29 +83,6 @@ func readMulti(cmd *cobra.Command, args []string) {
 	_, dest.MaxApdu = data.ToUint32(out)
 
 	fmt.Println("MaxApdu", dest.MaxApdu)
-
-	//get object list
-	rp = btypes.PropertyData{
-		Object: btypes.Object{
-			ID: btypes.ObjectID{
-				Type:     8,
-				Instance: btypes.ObjectInstance(deviceID),
-			},
-			Properties: []btypes.Property{
-				{
-					Type:       btypes.PropObjectList,
-					ArrayIndex: bacnet.ArrayAll,
-				},
-			},
-		},
-	}
-
-	// get the device object list
-	out, err = c.ReadProperty(dest, rp)
-	if err != nil {
-		log.Fatal(err)
-		return
-	}
 
 	rpm := btypes.MultiplePropertyData{}
 

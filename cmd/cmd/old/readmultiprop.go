@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/spf13/cobra"
 	"github.com/Nortech-ai/bacNetIP"
 	"github.com/Nortech-ai/bacNetIP/btypes"
+	"github.com/spf13/cobra"
 )
 
 // readMultiCmd represents the readMultiCmd command

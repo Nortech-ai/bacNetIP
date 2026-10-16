@@ -125,8 +125,7 @@ func (d *Decoder) ReadProperty(data *btypes.PropertyData) error {
 		// arra length
 
 		// Tag 2: Array Length (OPTIONAL)
-		var lenValue uint32
-		lenValue = d.value(meta)
+		lenValue := d.value(meta)
 
 		var openTag uint8
 		// I tried to not use magic numbers but it doesn't look like it can be avoided

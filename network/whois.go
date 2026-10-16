@@ -1,10 +1,10 @@
 package network
 
 import (
-	log "github.com/sirupsen/logrus"
 	"github.com/Nortech-ai/bacNetIP"
 	"github.com/Nortech-ai/bacNetIP/btypes"
 	"github.com/Nortech-ai/bacNetIP/helpers/data"
+	log "github.com/sirupsen/logrus"
 )
 
 func (device *Device) Whois(options *bacnet.WhoIsOpts) ([]btypes.Device, error) {

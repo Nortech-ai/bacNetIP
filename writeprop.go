@@ -48,10 +48,7 @@ func (c *client) WriteProperty(device btypes.Device, wp btypes.PropertyData) err
 		}
 		switch v := raw.(type) {
 		case error:
-			if err == nil {
-				err = raw.(error)
-			}
-			return err
+			return v
 		case []byte:
 			b = v
 		default:

@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/Nortech-ai/bacNetIP/helpers/homedir"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.com/Nortech-ai/bacNetIP/helpers/homedir"
 )
 
 var cfgFile string

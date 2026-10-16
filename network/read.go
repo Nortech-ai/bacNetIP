@@ -1,8 +1,8 @@
 package network
 
 import (
-	log "github.com/sirupsen/logrus"
 	"github.com/Nortech-ai/bacNetIP/btypes"
+	log "github.com/sirupsen/logrus"
 )
 
 type Object struct {
@@ -14,7 +14,7 @@ type Object struct {
 
 func (device *Device) Read(obj *Object) (out btypes.PropertyData, err error) {
 	if obj == nil {
-		return out, ObjectNil
+		return out, ErrObjectNil
 	}
 	rp := btypes.PropertyData{
 		Object: btypes.Object{

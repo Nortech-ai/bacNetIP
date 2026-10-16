@@ -678,9 +678,9 @@ func (rp MultiplePropertyData) String() string {
 		for _, prop := range obj.Properties {
 			buff.WriteString(spacing)
 			buff.WriteString(String(prop.Type))
-			buff.WriteString(fmt.Sprintf("[%v]", prop.ArrayIndex))
+			fmt.Fprintf(&buff, "[%v]", prop.ArrayIndex)
 			buff.WriteString(": ")
-			buff.WriteString(fmt.Sprintf("%v", prop.Data))
+			fmt.Fprintf(&buff, "%v", prop.Data)
 			buff.WriteString("\n")
 		}
 		buff.WriteString("\n")
@@ -693,7 +693,7 @@ func (rp MultiplePropertyData) String() string {
 func PrintAllProperties() {
 	max := func(x map[string]PropertyType) int {
 		max := 0
-		for k, _ := range x {
+		for k := range x {
 			if len(k) > max {
 				max = len(k)
 			}
