@@ -44,7 +44,10 @@ func (e *Encoder) ReadProperty(invokeID uint8, data btypes.PropertyData) error {
 		SegmentedMessage: false,
 	}
 	e.APDU(a)
-	e.readPropertyHeader(initialTagPos, &data)
+	_, err := e.readPropertyHeader(initialTagPos, &data)
+	if err != nil {
+		return err
+	}
 	return e.Error()
 }
 
