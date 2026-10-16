@@ -139,7 +139,6 @@ func (d *Decoder) ReadProperty(data *btypes.PropertyData) error {
 		}
 
 		if openTag == 3 {
-			var err error
 			// We subtract one to ignore the closing tag.
 			datalist := make([]interface{}, 0)
 
@@ -158,10 +157,6 @@ func (d *Decoder) ReadProperty(data *btypes.PropertyData) error {
 			// If we only have one value in the list, lets just return that value
 			if len(datalist) == 1 {
 				prop.Data = datalist[0]
-			}
-			if err != nil {
-				d.err = err
-				return err
 			}
 		}
 	} else {

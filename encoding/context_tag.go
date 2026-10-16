@@ -43,7 +43,6 @@ func tagTypeInContext(property btypes.PropertyType, tagNumber uint8) uint8 {
 		case 0: /* calendarEntry: abstract syntax + context */
 		case 2: /* list of BACnetTimeValue: abstract syntax */
 		}
-		break
 	case btypes.PROP_LOG_DEVICE_OBJECT_PROPERTY:
 		switch tagNumber {
 		case 0: /* Object ID */
@@ -55,7 +54,6 @@ func tagTypeInContext(property btypes.PropertyType, tagNumber uint8) uint8 {
 		case 2: /* Array index */
 			tag = tagUint
 		}
-		break
 	case btypes.PROP_SUBORDINATE_LIST:
 		/* BACnetARRAY[N] of BACnetDeviceObjectReference */
 		switch tagNumber {
@@ -78,7 +76,6 @@ func tagTypeInContext(property btypes.PropertyType, tagNumber uint8) uint8 {
 			         }
 			*/
 		}
-		break
 	case btypes.PROP_ACTIVE_COV_SUBSCRIPTIONS:
 		/* BACnetCOVSubscription */
 		switch tagNumber {

@@ -2,6 +2,7 @@ package encoding
 
 import (
 	"fmt"
+
 	"golang.org/x/text/encoding/unicode"
 )
 
@@ -54,9 +55,7 @@ func (d *Decoder) string(s *string, len int) error {
 	return d.Error()
 
 }
-func (e *Encoder) octetstring(b []byte) {
-	e.write([]byte(b))
-}
+
 func (d *Decoder) octetstring(b *[]byte, len int) {
 	*b = make([]byte, len)
 	d.decode(b)

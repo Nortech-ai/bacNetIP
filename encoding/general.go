@@ -14,18 +14,6 @@ func valueLength(value uint32) int {
 	return size32
 }
 
-/* from clause 20.2.1.3.2 Constructed Data */
-/* true if the tag is an opening tag */
-func isOpeningTag(x uint8) bool {
-	return ((x & 0x07) == 6)
-}
-
-/* from clause 20.2.1.3.2 Constructed Data */
-/* true if the tag is a closing tag */
-func isClosingTag(x uint8) bool {
-	return ((x & 0x07) == 7)
-}
-
 type tagMeta uint8
 
 const tagMask tagMeta = 7
@@ -85,8 +73,11 @@ func setInfoMask(in byte, b bool, mask byte) byte {
 	}
 }
 
-/* from clause 20.1.2.4 max-segments-accepted and clause 20.1.2.5 max-APDU-length-accepted
-returns the encoded octet */
+/*
+	from clause 20.1.2.4 max-segments-accepted and clause 20.1.2.5 max-APDU-length-accepted
+
+returns the encoded octet
+*/
 func (e *Encoder) maxSegsMaxApdu(maxSegs uint, maxApdu uint) {
 	x := encodeMaxSegsMaxApdu(maxSegs, maxApdu)
 	e.write(x)
