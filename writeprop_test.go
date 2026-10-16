@@ -86,4 +86,5 @@ func TestWriteProperty(t *testing.T) {
 
 	require.Len(t, link.Sent, 1)
 	assert.Equal(t, expectedSent[0].Dest, link.Sent[0].Dest)
+	assert.Equal(t, expectedSent[0].Data, link.Sent[0].Data)
 }

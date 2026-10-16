@@ -29,7 +29,6 @@ func (c *client) WriteProperty(device btypes.Device, wp btypes.PropertyData) err
 	}
 	enc := encoding.NewEncoder()
 	enc.NPDU(npdu)
-	enc.WriteProperty(uint8(id), wp)
 	if err := enc.WriteProperty(uint8(id), wp); err != nil {
 		return err
 	}
