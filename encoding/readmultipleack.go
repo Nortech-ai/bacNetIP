@@ -208,11 +208,16 @@ func (d *Decoder) objectsWithData(objects *[]btypes.Object) error {
 					}
 					tag, meta = d.tagNumber()
 					if meta.isClosing() && tag == 4 { //tag 4
-						//
 						break
-					} /*else {
-						_ = d.UnreadByte()
-					}*/
+					}
+					// A short read leaves tag 0 and a set error. AppDataOfTag(0, 0)
+					// would append null forever without consuming a byte.
+					if d.err != nil {
+						return d.err
+					}
+					if d.len() == 0 {
+						return fmt.Errorf("unexpected end of read-property-multiple value")
+					}
 				}
 				if len(array) == 1 {
 					prop.Data = array[0]

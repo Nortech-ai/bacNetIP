@@ -6,10 +6,12 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	pprint "github.com/Nortech-ai/bacNetIP/helpers/print"
 
 	"github.com/Nortech-ai/bacNetIP/btypes"
+	"github.com/Nortech-ai/bacNetIP/btypes/null"
 )
 
 func TestReadPropertyService(t *testing.T) {
@@ -303,5 +305,35 @@ func TestReadMultipleThree(t *testing.T) {
 	err := dec.ReadMultiplePropertyAck(&rp)
 	if err != nil {
 		t.Fatalf("failed to decode read multiple: %v", err)
+	}
+}
+
+func TestReadMultiplePropertyAckTruncatedValue(t *testing.T) {
+	e := NewEncoder()
+	e.contextObjectID(0, btypes.AnalogInput, 1)
+	e.openingTag(1)
+	e.contextEnumerated(2, uint32(btypes.PropPresentValue))
+	e.openingTag(4)
+	if err := e.AppData(null.Null{}, false); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.Error(); err != nil {
+		t.Fatal(err)
+	}
+	raw := append([]byte(nil), e.Bytes()...)
+
+	done := make(chan error, 1)
+	go func() {
+		dec := NewDecoder(raw)
+		var got btypes.MultiplePropertyData
+		done <- dec.ReadMultiplePropertyAck(&got)
+	}()
+	select {
+	case err := <-done:
+		if err == nil {
+			t.Fatal("truncated value returned no error")
+		}
+	case <-time.After(time.Second):
+		t.Fatal("truncated value decode hung")
 	}
 }
