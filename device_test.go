@@ -2,6 +2,7 @@ package bacnet
 
 import (
 	"bytes"
+	"encoding/binary"
 	"fmt"
 	"io"
 	"net"
@@ -12,6 +13,7 @@ import (
 	"github.com/Nortech-ai/bacNetIP/btypes/ndpu"
 	"github.com/Nortech-ai/bacNetIP/datalink"
 	"github.com/Nortech-ai/bacNetIP/encoding"
+	"github.com/Nortech-ai/bacNetIP/utsm"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -593,4 +595,35 @@ func networkLayerPacket(t *testing.T) []byte {
 	require.NoError(t, err)
 	require.NoError(t, enc.Error())
 	return enc.Bytes()
+}
+
+func TestIAmRouterOneNetworkPublishes(t *testing.T) {
+	link := datalink.NewMockDataLink()
+	c, err := NewClient(&ClientBuilder{
+		DataLink: link,
+		Ip:       "192.168.1.100",
+	})
+	require.NoError(t, err)
+	defer c.Close()
+	cli := c.(*client)
+	cli.utsm = utsm.NewManager(
+		utsm.DefaultSubscriberTimeout(50*time.Millisecond),
+		utsm.DefaultSubscriberLastReceivedTimeout(50*time.Millisecond),
+	)
+
+	var netNum [2]byte
+	binary.BigEndian.PutUint16(netNum[:], 2001)
+	raw := []byte{0x81, byte(btypes.BacFuncBroadcast), 0x00, 0x09, 0x01, 0x80, byte(ndpu.IamRouterToNetwork)}
+	raw = append(raw, netNum[:]...)
+
+	msgs, err := cli.utsm.Collect(2001, 2001, func() error {
+		cli.handleMsg(nil, raw)
+		return nil
+	})
+	require.NoError(t, err)
+	require.Len(t, msgs, 1)
+	list, ok := msgs[0].([]btypes.Address)
+	require.True(t, ok)
+	require.Len(t, list, 1)
+	assert.Equal(t, uint16(2001), list[0].Net)
 }
