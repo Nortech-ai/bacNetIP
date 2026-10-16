@@ -150,16 +150,16 @@ func (d *Decoder) unsigned(length int) uint32 {
 }
 
 func (d *Decoder) signed24() int32 {
-	var a, b, c int8
+	var a, b, c uint8
 	d.decode(&a)
 	d.decode(&b)
 	d.decode(&c)
-
-	var x int32
-	x = int32((int32(a) << 16) & 0x00ff0000)
-	x |= int32((int32(b) << 8) & 0x0000ff00)
-	x |= int32(int32(c) & 0x000000ff)
-	return x
+	u := uint32(a)<<16 | uint32(b)<<8 | uint32(c)
+	// Bit 23 is the sign. Masking an int8 shift drops it and turns negatives into ~2^24.
+	if u&0x800000 != 0 {
+		u |= 0xFF000000
+	}
+	return int32(u)
 }
 
 func (d *Decoder) signed(length int) int32 {
