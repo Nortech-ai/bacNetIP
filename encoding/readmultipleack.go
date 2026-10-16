@@ -172,7 +172,10 @@ func (d *Decoder) objectsWithData(objects *[]btypes.Object) error {
 									} else if tag == tagTime {
 										d.time(&dt.Time, int(length))
 									} else if length > 0 {
-										d.Skip(length)
+										err := d.Skip(length)
+										if err != nil {
+											return err
+										}
 									}
 								}
 								array = append(array, dt)

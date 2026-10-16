@@ -3,10 +3,10 @@ package network
 import (
 	"fmt"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/Nortech-ai/bacNetIP"
 	"github.com/Nortech-ai/bacNetIP/btypes"
 	"github.com/Nortech-ai/bacNetIP/helpers/data"
+	log "github.com/sirupsen/logrus"
 )
 
 // DeviceObjects get device objects

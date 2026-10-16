@@ -264,11 +264,6 @@ func TestHandleMsgRoutedSimpleAckMatchesStoredAddress(t *testing.T) {
 	}
 }
 
-func complexAckPacket(t *testing.T, invokeID uint8, npduSrc *btypes.Address) []byte {
-	t.Helper()
-	return ackPacket(t, btypes.BacFuncUnicast, btypes.ComplexAck, invokeID, nil, npduSrc)
-}
-
 func simpleAckPacket(t *testing.T, invokeID uint8, npduSrc *btypes.Address) []byte {
 	t.Helper()
 	// Encoder.APDU does not encode SimpleAck; layout is PDU type + invoke + service.

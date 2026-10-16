@@ -8,7 +8,7 @@ Type bitSting
 This property indicates which standardized protocol services are supported by this device's protocol implementation.
 */
 
-//Supported eg: Name acknowledgeAlarm Number 0 Index 1
+// Supported eg: Name acknowledgeAlarm Number 0 Index 1
 type Supported struct {
 	Name      string //name of service
 	Number    uint16 //prop number
@@ -303,48 +303,48 @@ func (support Supported) GetString(t Supported) string {
 	if !ok {
 		return fmt.Sprintf("Unknown (%s)", t.Name)
 	}
-	return fmt.Sprintf("%s", s)
+	return s
 }
 
-//protocolServicesSupported	97
-//bitString
+// protocolServicesSupported	97
+// bitString
 const (
-//acknowledgeAlarm           = 0
-//confirmedCOVNotification   = 1
-//confirmedEventNotification = 2
-//getAlarmSummary            = 3
-//getEnrollmentSummary       = 4
-//subscribeCOV               = 5
-//atomicReadFile    = 6
-//atomicWriteFile   = 7
-//addListElement    = 8
-//removeListElement = 9
-//createObject      = 10
-//deleteObject      = 11
-//readProperty               = 12
-//readPropertyMultiple       = 14
-//writeProperty              = 15
-//writePropertyMultiple      = 16
-//deviceCommunicationControl   = 17
-//confirmedPrivateTransfer     = 18
-//confirmedTextMessage         = 19
-//reinitializeDevice           = 20
-//vtOpen                       = 21
-//vtClose                      = 22
-//vtData                       = 23
-//iAm                          = 26
-//iHave                        = 27
-//unconfirmedCOVNotification   = 28
-//unconfirmedEventNotification = 29
-//unconfirmedPrivateTransfer   = 30
-//unconfirmedTextMessage       = 31
-//timeSynchronization          = 32
-//whoHas                       = 33
-//whoIs                        = 34
-//readRange                    = 35
-//utcTimeSynchronization       = 36
-//lifeSafetyOperation          = 37
-//subscribeCOVProperty         = 38
-//getEventInformation          = 39
-//writeGroup                   = 40
+// acknowledgeAlarm           = 0
+// confirmedCOVNotification   = 1
+// confirmedEventNotification = 2
+// getAlarmSummary            = 3
+// getEnrollmentSummary       = 4
+// subscribeCOV               = 5
+// atomicReadFile    = 6
+// atomicWriteFile   = 7
+// addListElement    = 8
+// removeListElement = 9
+// createObject      = 10
+// deleteObject      = 11
+// readProperty               = 12
+// readPropertyMultiple       = 14
+// writeProperty              = 15
+// writePropertyMultiple      = 16
+// deviceCommunicationControl   = 17
+// confirmedPrivateTransfer     = 18
+// confirmedTextMessage         = 19
+// reinitializeDevice           = 20
+// vtOpen                       = 21
+// vtClose                      = 22
+// vtData                       = 23
+// iAm                          = 26
+// iHave                        = 27
+// unconfirmedCOVNotification   = 28
+// unconfirmedEventNotification = 29
+// unconfirmedPrivateTransfer   = 30
+// unconfirmedTextMessage       = 31
+// timeSynchronization          = 32
+// whoHas                       = 33
+// whoIs                        = 34
+// readRange                    = 35
+// utcTimeSynchronization       = 36
+// lifeSafetyOperation          = 37
+// subscribeCOVProperty         = 38
+// getEventInformation          = 39
+// writeGroup                   = 40
 )

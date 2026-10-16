@@ -121,8 +121,7 @@ func (e *Encoder) tag(tg tagInfo) {
 returns the number of apdu bytes consumed
 */
 func (e *Encoder) objectId(objectType btypes.ObjectType, instance btypes.ObjectInstance) {
-	var value uint32
-	value = ((uint32(objectType) & MaxObject) << InstanceBits) | (uint32(instance) & MaxInstance)
+	value := ((uint32(objectType) & MaxObject) << InstanceBits) | (uint32(instance) & MaxInstance)
 	e.write(value)
 }
 

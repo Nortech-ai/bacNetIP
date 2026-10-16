@@ -76,19 +76,20 @@ func (d *Decoder) value(meta tagMeta) (value uint32) {
 		var val uint8
 		d.decode(&val)
 		// Tagged as an uint32
-		if val == flag32bit {
+		switch val {
+		case flag32bit:
 			var parse uint32
 			d.decode(&parse)
 			return parse
 
 			// Tagged as a uint16
-		} else if val == flag16bit {
+		case flag16bit:
 			var parse uint16
 			d.decode(&parse)
 			return uint32(parse)
 
 			// No tag, it must be a uint8
-		} else {
+		default:
 			return uint32(val)
 		}
 	} else if meta.isOpening() || meta.isClosing() {

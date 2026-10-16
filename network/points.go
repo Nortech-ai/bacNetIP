@@ -2,8 +2,9 @@ package network
 
 import (
 	"errors"
+	"fmt"
 
-	"github.com/Nortech-ai/bacNetIP"
+	bacnet "github.com/Nortech-ai/bacNetIP"
 	"github.com/Nortech-ai/bacNetIP/btypes"
 	"github.com/Nortech-ai/bacNetIP/btypes/priority"
 	"github.com/Nortech-ai/bacNetIP/btypes/units"
@@ -68,8 +69,8 @@ func (device *Device) PointDetails(pnt *Point) (resp *PointDetails, err error) {
 
 // PointReadFloat32 use this when wanting to read point values for an AI, AV, AO
 func (device *Device) PointReadFloat32(pnt *Point) (float32, error) {
-	if device.isPointFloat(pnt) {
-
+	if !device.isPointFloat(pnt) {
+		return 0, fmt.Errorf("invalid point object type %s to PointReadFloat32()", pnt.ObjectType)
 	}
 	obj := &Object{
 		ObjectID:   pnt.ObjectID,
@@ -87,8 +88,8 @@ func (device *Device) PointReadFloat32(pnt *Point) (float32, error) {
 
 // PointReadPriority use this when wanting to read point values for an AI, AV, AO
 func (device *Device) PointReadPriority(pnt *Point) (pri *priority.Float32, err error) {
-	if device.isPointWriteable(pnt) {
-
+	if !device.isPointWriteable(pnt) {
+		return nil, fmt.Errorf("invalid point object type %s to PointReadPriority()", pnt.ObjectType)
 	}
 	pri = &priority.Float32{}
 	obj := &Object{
@@ -171,8 +172,8 @@ func (device *Device) PointReleasePriority(pnt *Point, pri uint8) error {
 
 // PointWriteAnalogue use this when wanting to write a new value for an AV, AO
 func (device *Device) PointWriteAnalogue(pnt *Point, value float32) error {
-	if device.isPointFloat(pnt) {
-
+	if !device.isPointFloat(pnt) {
+		return fmt.Errorf("invalid point object type %s to PointWriteAnalogue()", pnt.ObjectType)
 	}
 	write := &Write{
 		ObjectID:      pnt.ObjectID,
@@ -190,8 +191,8 @@ func (device *Device) PointWriteAnalogue(pnt *Point, value float32) error {
 
 // PointWriteBool use this when wanting to write a new value for an BV, AO
 func (device *Device) PointWriteBool(pnt *Point, value uint32) error {
-	if device.isPointFloat(pnt) {
-
+	if !device.isPointBool(pnt) {
+		return fmt.Errorf("invalid point object type %s to PointWriteBool()", pnt.ObjectType)
 	}
 	write := &Write{
 		ObjectID:      pnt.ObjectID,
@@ -209,8 +210,8 @@ func (device *Device) PointWriteBool(pnt *Point, value uint32) error {
 
 // PointWriteMultiState use this when wanting to write a new value for an MV, MO
 func (device *Device) PointWriteMultiState(pnt *Point, value uint32) error {
-	if device.isPointFloat(pnt) {
-
+	if !device.isPointMultiState(pnt) {
+		return fmt.Errorf("invalid point object type %s to PointWriteMultiState()", pnt.ObjectType)
 	}
 	write := &Write{
 		ObjectID:      pnt.ObjectID,
@@ -242,16 +243,6 @@ func (device *Device) ToBitString(d btypes.PropertyData) *btypes.BitString {
 
 func (device *Device) toUint32(d btypes.PropertyData) uint32 {
 	_, out := data.ToUint32(d)
-	return out
-}
-
-func (device *Device) toInt(d btypes.PropertyData) int {
-	_, out := data.ToInt(d)
-	return out
-}
-
-func (device *Device) toBool(d btypes.PropertyData) bool {
-	_, out := data.ToBool(d)
 	return out
 }
 
@@ -303,6 +294,19 @@ func (device *Device) isPointBool(pnt *Point) (ok bool) {
 		return true
 	}
 	if pnt.ObjectType == btypes.BinaryValue {
+		return true
+	}
+	return false
+}
+
+func (device *Device) isPointMultiState(pnt *Point) (ok bool) {
+	if pnt.ObjectType == btypes.MultiStateInput {
+		return true
+	}
+	if pnt.ObjectType == btypes.MultiStateOutput {
+		return true
+	}
+	if pnt.ObjectType == btypes.MultiStateValue {
 		return true
 	}
 	return false

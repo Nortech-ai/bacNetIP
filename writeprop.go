@@ -29,9 +29,8 @@ func (c *client) WriteProperty(device btypes.Device, wp btypes.PropertyData) err
 	}
 	enc := encoding.NewEncoder()
 	enc.NPDU(npdu)
-	enc.WriteProperty(uint8(id), wp)
-	if enc.Error() != nil {
-		return enc.Error()
+	if err := enc.WriteProperty(uint8(id), wp); err != nil {
+		return err
 	}
 	// the value filled doesn't matter. it just needs to be non nil
 	err = fmt.Errorf("go")
@@ -48,10 +47,7 @@ func (c *client) WriteProperty(device btypes.Device, wp btypes.PropertyData) err
 		}
 		switch v := raw.(type) {
 		case error:
-			if err == nil {
-				err = raw.(error)
-			}
-			return err
+			return v
 		case []byte:
 			b = v
 		default:

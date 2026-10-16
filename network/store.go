@@ -3,10 +3,10 @@ package network
 import (
 	"fmt"
 
-	"github.com/pkg/errors"
 	"github.com/Nortech-ai/bacNetIP"
 	"github.com/Nortech-ai/bacNetIP/btypes"
 	"github.com/Nortech-ai/bacNetIP/helpers/store"
+	"github.com/pkg/errors"
 )
 
 //var memDb *store.Handler

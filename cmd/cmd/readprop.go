@@ -5,12 +5,14 @@ import (
 	"reflect"
 	"strconv"
 
-	"github.com/spf13/cobra"
-	"github.com/Nortech-ai/bacNetIP"
+	log "github.com/sirupsen/logrus"
+
+	bacnet "github.com/Nortech-ai/bacNetIP"
 	"github.com/Nortech-ai/bacNetIP/btypes"
 	"github.com/Nortech-ai/bacNetIP/btypes/services"
 	pprint "github.com/Nortech-ai/bacNetIP/helpers/print"
 	"github.com/Nortech-ai/bacNetIP/network"
+	"github.com/spf13/cobra"
 )
 
 // Flags
@@ -77,6 +79,10 @@ func readProp(cmd *cobra.Command, args []string) {
 		propInt = btypes.PropertyType(uint32(i))
 	} else {
 		propInt, err = btypes.Get(propertyType)
+		if err != nil {
+			log.Fatal(err)
+			return
+		}
 	}
 
 	obj := &network.Object{
@@ -87,6 +93,14 @@ func readProp(cmd *cobra.Command, args []string) {
 
 	}
 	read, err := device.Read(obj)
+	if err != nil {
+		log.Fatal(err)
+		return
+	}
+	if len(read.Object.Properties) == 0 {
+		log.Fatal("no properties returned")
+		return
+	}
 	pprint.PrintJOSN(read)
 	fmt.Println(read.Object.Properties[0].Data)
 
