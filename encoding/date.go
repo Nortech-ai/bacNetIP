@@ -1,6 +1,10 @@
 package encoding
 
-import "github.com/Nortech-ai/bacNetIP/btypes"
+import (
+	"fmt"
+
+	"github.com/Nortech-ai/bacNetIP/btypes"
+)
 
 // epochYear is an increment to all non-stored values. This year is chosen in
 // the standard. Why? No idea. God help us all if bacnet hits the 255 + 1990
@@ -75,11 +79,16 @@ func (e *Encoder) time(t btypes.Time) {
 	e.write(uint8(t.Millisecond / 10))
 }
 func (d *Decoder) time(t *btypes.Time, length int) {
-	if length <= 0 {
+	if length < 4 {
+		d.err = fmt.Errorf("bacnet time length %d is shorter than 4", length)
 		return
 	}
 	data := make([]byte, length)
 	if _, d.err = d.Read(data); d.err != nil {
+		return
+	}
+	if len(data) < 4 {
+		d.err = fmt.Errorf("bacnet time length %d is shorter than 4", len(data))
 		return
 	}
 
@@ -87,5 +96,4 @@ func (d *Decoder) time(t *btypes.Time, length int) {
 	t.Minute = int(data[1])
 	t.Second = int(data[2])
 	t.Millisecond = int(data[3]) * 10
-
 }

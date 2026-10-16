@@ -168,6 +168,52 @@ func TestStringUnicode(t *testing.T) {
 	}
 }
 
+func TestAppDataDoubleUsesExtendedLength(t *testing.T) {
+	enc := NewEncoder()
+	if err := enc.AppData(float64(1.5), false); err != nil {
+		t.Fatal(err)
+	}
+	raw := enc.Bytes()
+	if len(raw) < 2 || raw[0] != 0x55 || raw[1] != byte(doubleLen) {
+		t.Fatalf("double encoding %v, want tag 0x55 length 8", raw)
+	}
+
+	got, err := NewDecoder(raw).AppData()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != float64(1.5) {
+		t.Fatalf("decoded %#v", got)
+	}
+
+	// Eight payload bytes follow a 4-octet length tag. The old decoder ignored
+	// the length and returned a float64.
+	short := []byte{0x54, 1, 2, 3, 4, 5, 6, 7, 8}
+	if _, err := NewDecoder(short).AppData(); err == nil {
+		t.Fatal("4-octet double length was accepted")
+	}
+}
+
+func TestAppDataShortTimeAndEmptyString(t *testing.T) {
+	if _, err := NewDecoder([]byte{0xB1, 0x01}).AppData(); err == nil {
+		t.Fatal("time length 1 returned no error")
+	}
+
+	raw := []byte{0xB4, 1, 2, 3, 4}
+	got, err := NewDecoder(raw).AppData()
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := btypes.Time{Hour: 1, Minute: 2, Second: 3, Millisecond: 40}
+	if got != want {
+		t.Fatalf("time %#v, want %#v", got, want)
+	}
+
+	if _, err := NewDecoder([]byte{0x70}).AppData(); err == nil {
+		t.Fatal("character string length 0 returned no error")
+	}
+}
+
 func TestReverseBitsInByte(t *testing.T) {
 	var a byte = 0x0F
 	a = byteReverseBits(a)

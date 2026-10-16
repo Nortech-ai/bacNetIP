@@ -94,7 +94,8 @@ func (e *Encoder) AppData(i interface{}, typeBVBO bool) error {
 		e.tag(tagInfo{ID: tagReal, Context: appLayerContext, Value: realLen})
 		e.real(val)
 	case float64:
-		e.tag(tagInfo{ID: tagDouble, Context: appLayerContext, Value: realLen})
+		// Length 8 does not fit in the tag's 3-bit length, so this is an extended length.
+		e.tag(tagInfo{ID: tagDouble, Context: appLayerContext, Value: doubleLen})
 		e.double(val)
 	case bool:
 		e.boolean(val)
@@ -148,6 +149,9 @@ func (d *Decoder) AppDataOfTag(tag uint8, len int) (interface{}, error) {
 		d.real(&x)
 		return x, d.Error()
 	case tagDouble:
+		if len != int(doubleLen) {
+			return nil, fmt.Errorf("bacnet double length %d is not %d", len, doubleLen)
+		}
 		var x float64
 		d.double(&x)
 		return x, d.Error()
@@ -157,8 +161,11 @@ func (d *Decoder) AppDataOfTag(tag uint8, len int) (interface{}, error) {
 		return b, d.Error()
 
 	case tagCharacterString:
+		// Length includes the encoding octet. Zero would make len-1 negative and panic in make.
+		if len < 1 {
+			return nil, fmt.Errorf("bacnet character string is missing the encoding octet")
+		}
 		var s string
-		// Subtract 1 to length to account for the encoding byte
 		err := d.string(&s, len-1)
 		return s, err
 	case tagBitString:
