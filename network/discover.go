@@ -93,23 +93,17 @@ func (device *Device) DeviceDiscover(options *bacnet.WhoIsOpts) ([]*Device, erro
 		return devices, err
 	}
 	for _, dev := range whois {
-		if len(dev.Addr.Adr) > 0 {
-			device.MacMSTP = int(dev.Addr.Adr[0])
+		found, nerr := deviceFromIAm(device.network, dev)
+		if nerr != nil {
+			return devices, nerr
 		}
-		host, _ := dev.Addr.UDPAddr()
-		device.DeviceID = int(dev.ID.Instance)
-		device.Ip = host.IP.String()
-		device.NetworkNumber = int(dev.Addr.Net)
-		device.MaxApdu = dev.MaxApdu
-		device.Segmentation = uint32(dev.Segmentation)
-		details, err := device.GetDeviceDetails(dev.ID.Instance)
-		if err != nil {
-			fmt.Println("discover err", err)
+		details, derr := found.GetDeviceDetails(dev.ID.Instance)
+		if derr != nil {
+			fmt.Println("discover err", derr)
 		}
-		device.DeviceName = details.Name
-		device.VendorName = details.VendorName
-		devices = append(devices, device)
-
+		found.DeviceName = details.Name
+		found.VendorName = details.VendorName
+		devices = append(devices, found)
 	}
 	count := 1
 	for _, d := range devices {
@@ -118,4 +112,33 @@ func (device *Device) DeviceDiscover(options *bacnet.WhoIsOpts) ([]*Device, erro
 		fmt.Println(d.VendorName, d.DeviceName, d.Ip)
 	}
 	return devices, err
+}
+
+// deviceFromIAm copies one I-Am into its own Device and sets dev.Addr from that I-Am.
+// The receiver used for discovery is left unchanged.
+func deviceFromIAm(client bacnet.Client, dev btypes.Device) (*Device, error) {
+	mac := 0
+	if len(dev.Addr.Adr) > 0 {
+		mac = int(dev.Addr.Adr[0])
+	}
+	host, err := dev.Addr.UDPAddr()
+	if err != nil {
+		return nil, fmt.Errorf("i-am address: %w", err)
+	}
+	found := &Device{
+		Ip:            host.IP.String(),
+		Port:          host.Port,
+		DeviceID:      int(dev.ID.Instance),
+		NetworkNumber: int(dev.Addr.Net),
+		MacMSTP:       mac,
+		MaxApdu:       dev.MaxApdu,
+		Segmentation:  uint32(dev.Segmentation),
+		network:       client,
+	}
+	// Store with a nil cache skips persistence. NewDevice fills dev.Addr.
+	created, err := NewDevice(&Network{bacnet: client, Store: &Store{}}, found)
+	if err != nil {
+		return nil, err
+	}
+	return created, nil
 }
