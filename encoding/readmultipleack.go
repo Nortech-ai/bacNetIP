@@ -31,7 +31,9 @@ func (e *Encoder) objectsWithData(objects []btypes.Object) error {
 		tag = 1
 		e.openingTag(tag)
 
-		e.propertiesWithData(obj.Properties)
+		if err := e.propertiesWithData(obj.Properties); err != nil {
+			return err
+		}
 
 		// Tag 1 - Closing Tag
 		e.closingTag(tag)
@@ -56,10 +58,10 @@ func (e *Encoder) propertiesWithData(properties []btypes.Property) error {
 		tag++
 		openedTag := tag
 		e.openingTag(openedTag)
-		e.write(prop.Data)
+		if err := e.AppData(prop.Data, false); err != nil {
+			return err
+		}
 		e.closingTag(openedTag)
-
-		e.write(prop.Data)
 	}
 	return e.Error()
 }
@@ -233,7 +235,6 @@ func (d *Decoder) objectsWithData(objects *[]btypes.Object) error {
 				if tag == 5 && meta.isClosing() {
 					//
 				}
-				prop := btypes.Property{}
 				prop.Data = fmt.Errorf("object %s: class %s code %s", obj.ID.String(), bacerr.ErrorCode(class).String(), bacerr.ErrorCode(code).String())
 				obj.Properties = append(obj.Properties, prop)
 				tag, meta, length = d.tagNumberAndValue()

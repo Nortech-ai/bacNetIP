@@ -2,6 +2,7 @@ package bacnet
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -9,6 +10,10 @@ import (
 
 	"github.com/Nortech-ai/bacNetIP/encoding"
 )
+
+// ErrReplyMismatch is returned when a ReadPropertyMultiple complex-ack does
+// not list the objects and property ids that were requested.
+var ErrReplyMismatch = errors.New("bacnet reply does not match the request")
 
 const maxReattempt = 2
 
@@ -59,15 +64,20 @@ func (c *client) ReadMultiProperty(device btypes.Device, rp btypes.MultiplePrope
 	err = fmt.Errorf("go")
 
 	for count := 0; err != nil && count < maxReattempt; count++ {
-		out, err = c.sendReadMultipleProperty(id, device, npdu, pack)
+		out, err = c.sendReadMultipleProperty(id, device, rp, npdu, pack)
 		if err == nil {
 			return out, nil
+		}
+		// The ack already completed the transaction. Another try would time out,
+		// and the %v wrap below would hide the sentinel.
+		if errors.Is(err, ErrReplyMismatch) {
+			return btypes.MultiplePropertyData{}, err
 		}
 	}
 	return out, fmt.Errorf("failed %d tries: %v", maxReattempt, err)
 }
 
-func (c *client) sendReadMultipleProperty(id int, dev btypes.Device, npdu *btypes.NPDU, request []byte) (btypes.MultiplePropertyData, error) {
+func (c *client) sendReadMultipleProperty(id int, dev btypes.Device, rp btypes.MultiplePropertyData, npdu *btypes.NPDU, request []byte) (btypes.MultiplePropertyData, error) {
 	var out btypes.MultiplePropertyData
 	_, err := c.Send(dev.Addr, npdu, request, nil)
 	if err != nil {
@@ -104,5 +114,37 @@ func (c *client) sendReadMultipleProperty(id int, dev btypes.Device, npdu *btype
 		c.log.Debugf("WEIRD PACKET: %v: %v", err, b)
 		return out, err
 	}
-	return out, err
+	if err = matchReadMultipleReply(rp, out); err != nil {
+		c.log.Debug("bacnet reply does not match the request")
+		return btypes.MultiplePropertyData{}, err
+	}
+	return out, nil
+}
+
+// matchReadMultipleReply checks that the complex-ack lists the requested objects
+// in order and only property ids that were asked for. Property order and values
+// are ignored. A non-empty subset of the requested ids is accepted, including a
+// property whose Data is an error.
+func matchReadMultipleReply(requested, reply btypes.MultiplePropertyData) error {
+	if len(reply.Objects) != len(requested.Objects) {
+		return fmt.Errorf("%w: object count %d, requested %d", ErrReplyMismatch, len(reply.Objects), len(requested.Objects))
+	}
+	for i := range requested.Objects {
+		if reply.Objects[i].ID != requested.Objects[i].ID {
+			return fmt.Errorf("%w: object %d id mismatch", ErrReplyMismatch, i)
+		}
+		if len(reply.Objects[i].Properties) == 0 {
+			return fmt.Errorf("%w: object %d has no properties", ErrReplyMismatch, i)
+		}
+		allowed := make(map[btypes.PropertyType]struct{}, len(requested.Objects[i].Properties))
+		for _, prop := range requested.Objects[i].Properties {
+			allowed[prop.Type] = struct{}{}
+		}
+		for _, prop := range reply.Objects[i].Properties {
+			if _, ok := allowed[prop.Type]; !ok {
+				return fmt.Errorf("%w: object %d property %d was not requested", ErrReplyMismatch, i, prop.Type)
+			}
+		}
+	}
+	return nil
 }
