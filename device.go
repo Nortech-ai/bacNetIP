@@ -174,6 +174,11 @@ func isClosedErr(err error) bool {
 }
 
 func (c *client) handleMsg(src *btypes.Address, b []byte) {
+	defer func() {
+		if r := recover(); r != nil {
+			c.log.Errorf("recovered panic in handleMsg: %v", r)
+		}
+	}()
 	var header btypes.BVLC
 	var npdu btypes.NPDU
 	var apdu btypes.APDU
