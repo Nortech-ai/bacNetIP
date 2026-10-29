@@ -1,9 +1,13 @@
 package bacnet
 
 import (
+	"errors"
 	"fmt"
 	"io"
+	"net"
+	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/Nortech-ai/bacNetIP/btypes"
@@ -41,6 +45,7 @@ type client struct {
 	utsm           *utsm.Manager
 	readBufferPool sync.Pool
 	log            *log.Logger
+	closed         atomic.Bool
 }
 
 type ClientBuilder struct {
@@ -131,12 +136,19 @@ func NewClient(cb *ClientBuilder) (Client, error) {
 
 func (c *client) ClientRun() {
 	for {
+		if c.closed.Load() {
+			return
+		}
 		b := c.readBufferPool.Get().([]byte)
 		addr, n, err := c.dataLink.Receive(b)
 
+		if c.closed.Load() {
+			return
+		}
+
 		// If the data link is closed, return
-		if err == io.EOF {
-			c.log.Error(fmt.Errorf("data link closed: %w", err))
+		if isClosedErr(err) {
+			c.log.Debugf("data link closed: %v", err)
 			return
 		}
 
@@ -148,6 +160,17 @@ func (c *client) ClientRun() {
 
 		go c.handleMsg(addr, b[:n])
 	}
+}
+
+func isClosedErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, io.EOF) || errors.Is(err, net.ErrClosed) {
+		return true
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "use of closed network connection") || strings.Contains(msg, "data link closed")
 }
 
 func (c *client) handleMsg(src *btypes.Address, b []byte) {
@@ -363,6 +386,7 @@ func (c *client) ClientClose(closeLogs bool) error {
 
 // Close free resources for the client. Always call this function when using NewClient
 func (c *client) Close() error {
+	c.closed.Store(true)
 	if c.dataLink != nil {
 		c.dataLink.Close()
 	}

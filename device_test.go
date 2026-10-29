@@ -44,6 +44,68 @@ func TestClientRunEOF(t *testing.T) {
 	// error and continued processing messages, and that we exited the when we got an EOF
 }
 
+func TestClientRunNetErrClosed(t *testing.T) {
+	link := datalink.NewMockDataLink()
+	cb := &ClientBuilder{
+		DataLink: link,
+		Ip:       "192.168.1.100",
+	}
+
+	c, err := NewClient(cb)
+	require.NoError(t, err)
+	defer c.Close()
+
+	link.Received = []datalink.ReceivedMessage{
+		{
+			Error: net.ErrClosed,
+		},
+	}
+
+	done := make(chan struct{})
+	go func() {
+		c.ClientRun()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		// Exited cleanly
+	case <-time.After(2 * time.Second):
+		t.Fatal("ClientRun did not exit on net.ErrClosed")
+	}
+}
+
+func TestClientRunCloseStopsGoroutine(t *testing.T) {
+	link := datalink.NewMockDataLink()
+	cb := &ClientBuilder{
+		DataLink: link,
+		Ip:       "192.168.1.100",
+	}
+
+	c, err := NewClient(cb)
+	require.NoError(t, err)
+
+	done := make(chan struct{})
+	go func() {
+		c.ClientRun()
+		close(done)
+	}()
+
+	// Allow ClientRun to block in Receive
+	time.Sleep(50 * time.Millisecond)
+
+	// Close the client, which sets closed flag and closes the datalink
+	err = c.Close()
+	require.NoError(t, err)
+
+	select {
+	case <-done:
+		// Exited cleanly
+	case <-time.After(2 * time.Second):
+		t.Fatal("ClientRun did not exit after client was closed")
+	}
+}
+
 func TestHandleMsgUnconfirmedDoesNotError(t *testing.T) {
 	cases := []struct {
 		name    string

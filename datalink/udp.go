@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"strings"
 	"time"
@@ -224,6 +225,9 @@ func (c *udpDataLink) Close() error {
 func (c *udpDataLink) Receive(data []byte) (*btypes.Address, int, error) {
 	n, adr, err := c.listener.ReadFromUDP(data)
 	if err != nil {
+		if errors.Is(err, net.ErrClosed) || errors.Is(err, io.EOF) || strings.Contains(err.Error(), "use of closed network connection") {
+			return nil, 0, io.EOF
+		}
 		return nil, n, err
 	}
 	adr.IP = adr.IP.To4()
@@ -271,6 +275,9 @@ func (c *pcapDataLink) Close() error {
 func (c *pcapDataLink) Receive(data []byte) (*btypes.Address, int, error) {
 	src, dstIP, dstPort, n, err := c.readPacket(data)
 	if err != nil {
+		if errors.Is(err, net.ErrClosed) || errors.Is(err, io.EOF) || strings.Contains(err.Error(), "closed") {
+			return nil, 0, io.EOF
+		}
 		return nil, n, err
 	}
 	if !acceptCapturedUDP(dstIP, dstPort, c.localPort, c.bacnetPort, c.localIP, c.broadcastIP) {
