@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"sync"
 	"testing"
 	"time"
 
@@ -42,6 +43,114 @@ func TestClientRunEOF(t *testing.T) {
 
 	// So if we got here the test succeeded. This tests that we both handled the first
 	// error and continued processing messages, and that we exited the when we got an EOF
+}
+
+func TestClientRunNetErrClosed(t *testing.T) {
+	link := datalink.NewMockDataLink()
+	cb := &ClientBuilder{
+		DataLink: link,
+		Ip:       "192.168.1.100",
+	}
+
+	c, err := NewClient(cb)
+	require.NoError(t, err)
+	defer c.Close()
+
+	link.Received = []datalink.ReceivedMessage{
+		{
+			Error: net.ErrClosed,
+		},
+	}
+
+	done := make(chan struct{})
+	go func() {
+		c.ClientRun()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		// Exited cleanly
+	case <-time.After(2 * time.Second):
+		t.Fatal("ClientRun did not exit on net.ErrClosed")
+	}
+}
+
+func TestClientRunCloseStopsGoroutine(t *testing.T) {
+	link := datalink.NewMockDataLink()
+	cb := &ClientBuilder{
+		DataLink: link,
+		Ip:       "192.168.1.100",
+	}
+
+	c, err := NewClient(cb)
+	require.NoError(t, err)
+
+	done := make(chan struct{})
+	go func() {
+		c.ClientRun()
+		close(done)
+	}()
+
+	// Allow ClientRun to block in Receive
+	time.Sleep(50 * time.Millisecond)
+
+	// Close the client, which sets closed flag and closes the datalink
+	err = c.Close()
+	require.NoError(t, err)
+
+	select {
+	case <-done:
+		// Exited cleanly
+	case <-time.After(2 * time.Second):
+		t.Fatal("ClientRun did not exit after client was closed")
+	}
+}
+
+func TestClientRunRecyclesBuffers(t *testing.T) {
+	link := datalink.NewMockDataLink()
+	cb := &ClientBuilder{
+		DataLink: link,
+		Ip:       "192.168.1.100",
+		MaxPDU:   480,
+	}
+
+	c, err := NewClient(cb)
+	require.NoError(t, err)
+	defer c.Close()
+
+	cli := c.(*client)
+	var allocated []uintptr
+	cli.readBufferPool = sync.Pool{
+		New: func() interface{} {
+			buf := make([]byte, 480)
+			allocated = append(allocated, uintptr(len(buf)))
+			return buf
+		},
+	}
+
+	// Inject 5 messages into mock datalink followed by EOF to terminate
+	for i := 0; i < 5; i++ {
+		link.Received = append(link.Received, datalink.ReceivedMessage{
+			Data: []byte{0x81, 0x0a, 0x00, 0x04}, // minimal BVLC
+			Src:  &btypes.Address{},
+		})
+	}
+	link.Received = append(link.Received, datalink.ReceivedMessage{
+		Error: io.EOF,
+	})
+
+	cli.ClientRun()
+
+	// Wait briefly for asynchronous handleMsg goroutines to return buffers to pool
+	time.Sleep(50 * time.Millisecond)
+
+	// Since buffers are recycled back to the pool, fetching from the pool should
+	// not need to allocate fresh slices each time
+	p1 := cli.readBufferPool.Get().([]byte)
+	p2 := cli.readBufferPool.Get().([]byte)
+	require.Equal(t, 480, len(p1))
+	require.Equal(t, 480, len(p2))
 }
 
 func TestHandleMsgUnconfirmedDoesNotError(t *testing.T) {

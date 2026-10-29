@@ -128,6 +128,9 @@ func (c *client) objectInformation(dev *btypes.Device, objs []btypes.Object) err
 		})
 
 	}
+	if len(keys) == 0 {
+		return nil
+	}
 	resp, err := c.ReadMultiProperty(*dev, rpm)
 	if err != nil {
 		return fmt.Errorf("unable to read multiple property for device %d: %w", dev.ID.Instance, err)
@@ -138,7 +141,8 @@ func (c *client) objectInformation(dev *btypes.Device, objs []btypes.Object) err
 	for i, r := range resp.Objects {
 		name, err := extractObjectMetadata(dev.ID, keys[i], r)
 		if err != nil {
-			return err
+			c.log.Debugf("device %d: skipping metadata for object %s: %v", dev.ID.Instance, keys[i].String(), err)
+			continue
 		}
 		obj := dev.Objects[keys[i].Type][keys[i].Instance]
 		obj.Name = name
@@ -151,12 +155,10 @@ func (c *client) allObjectInformation(dev *btypes.Device) error {
 	objs := dev.ObjectSlice()
 	incrSize := 5
 
-	var err error
 	for i := 0; i < len(objs); i += incrSize {
 		subset := objs[i:min(i+incrSize, len(objs))]
-		err = c.objectInformation(dev, subset)
-		if err != nil {
-			return err
+		if err := c.objectInformation(dev, subset); err != nil {
+			c.log.Debugf("device %d: unable to read metadata for object chunk %d-%d: %v", dev.ID.Instance, i, min(i+incrSize, len(objs)), err)
 		}
 	}
 

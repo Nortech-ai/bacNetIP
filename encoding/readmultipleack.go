@@ -31,7 +31,9 @@ func (e *Encoder) objectsWithData(objects []btypes.Object) error {
 		tag = 1
 		e.openingTag(tag)
 
-		e.propertiesWithData(obj.Properties)
+		if err := e.propertiesWithData(obj.Properties); err != nil {
+			return err
+		}
 
 		// Tag 1 - Closing Tag
 		e.closingTag(tag)
@@ -56,10 +58,10 @@ func (e *Encoder) propertiesWithData(properties []btypes.Property) error {
 		tag++
 		openedTag := tag
 		e.openingTag(openedTag)
-		e.write(prop.Data)
+		if err := e.AppData(prop.Data, false); err != nil {
+			return err
+		}
 		e.closingTag(openedTag)
-
-		e.write(prop.Data)
 	}
 	return e.Error()
 }
@@ -119,9 +121,11 @@ func (d *Decoder) objectsWithData(objects *[]btypes.Object) error {
 			return &ErrorWrongTagType{OpeningTag}
 		}
 
-		// Tag 2 - Property Tag
+		// Tag 2 - Property Tag (or Tag 1 closing if the object has no properties)
 		tag, meta, length = d.tagNumberAndValue()
-		if tag != 2 {
+		if tag == 1 && meta.isClosing() {
+			// Object has an empty list of results (e.g. PROP_OPTIONAL with no optional properties).
+		} else if tag != 2 {
 			return &ErrorIncorrectTag{Expected: 2, Given: tag}
 		}
 
@@ -178,10 +182,6 @@ func (d *Decoder) objectsWithData(objects *[]btypes.Object) error {
 								array = append(array, dt)
 							}
 						} else {
-							// TODO how to parse it in Context???
-							*objects = append(*objects, obj)
-							//return nil
-
 							lenValue := d.value(meta)
 							tag = tagTypeInContext(prop.Type, tag)
 							if tag == maxTag {
@@ -233,7 +233,6 @@ func (d *Decoder) objectsWithData(objects *[]btypes.Object) error {
 				if tag == 5 && meta.isClosing() {
 					//
 				}
-				prop := btypes.Property{}
 				prop.Data = fmt.Errorf("object %s: class %s code %s", obj.ID.String(), bacerr.ErrorCode(class).String(), bacerr.ErrorCode(code).String())
 				obj.Properties = append(obj.Properties, prop)
 				tag, meta, length = d.tagNumberAndValue()

@@ -30,16 +30,30 @@ func decodeUCS2(s string) (string, error) {
 }
 
 func (d *Decoder) string(s *string, len int) error {
+	if len < 0 {
+		*s = ""
+		return nil
+	}
 	var t stringType
 	d.decode(&t)
+	if d.Error() != nil {
+		return d.Error()
+	}
 	switch t {
 	case stringUTF8:
 	case characterUCS2:
 	default:
 		return fmt.Errorf("unsupported string format %d", t)
 	}
+	if len == 0 {
+		*s = ""
+		return nil
+	}
 	b := make([]byte, len)
 	d.decode(b)
+	if d.Error() != nil {
+		return d.Error()
+	}
 
 	if t == characterUCS2 {
 		out, err := decodeUCS2(string(b))
@@ -58,6 +72,10 @@ func (e *Encoder) octetstring(b []byte) {
 	e.write([]byte(b))
 }
 func (d *Decoder) octetstring(b *[]byte, len int) {
+	if len <= 0 {
+		*b = []byte{}
+		return
+	}
 	*b = make([]byte, len)
 	d.decode(b)
 }

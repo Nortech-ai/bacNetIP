@@ -2,6 +2,7 @@ package encoding
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"reflect"
 	"strings"
@@ -10,6 +11,7 @@ import (
 	pprint "github.com/Nortech-ai/bacNetIP/helpers/print"
 
 	"github.com/Nortech-ai/bacNetIP/btypes"
+	"github.com/Nortech-ai/bacNetIP/btypes/bacerr"
 )
 
 func TestReadPropertyService(t *testing.T) {
@@ -303,5 +305,126 @@ func TestReadMultipleThree(t *testing.T) {
 	err := dec.ReadMultiplePropertyAck(&rp)
 	if err != nil {
 		t.Fatalf("failed to decode read multiple: %v", err)
+	}
+}
+
+func TestReadMultiplePropertyAckAccessErrorKeepsPropertyID(t *testing.T) {
+	const (
+		class = uint32(bacerr.PropertyError)
+		code  = uint32(bacerr.UnknownProperty)
+	)
+	obj := btypes.ObjectID{Type: btypes.BinaryInput, Instance: 80}
+
+	e := NewEncoder()
+	e.contextObjectID(0, obj.Type, obj.Instance)
+	e.openingTag(1)
+	e.contextEnumerated(2, uint32(btypes.PropPresentValue))
+	e.openingTag(5)
+	if err := e.AppData(class, false); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.AppData(code, false); err != nil {
+		t.Fatal(err)
+	}
+	e.closingTag(5)
+	e.closingTag(1)
+	if err := e.Error(); err != nil {
+		t.Fatal(err)
+	}
+
+	dec := NewDecoder(e.Bytes())
+	var got btypes.MultiplePropertyData
+	if err := dec.ReadMultiplePropertyAck(&got); err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Objects) != 1 {
+		t.Fatalf("object count %d", len(got.Objects))
+	}
+	if len(got.Objects[0].Properties) != 1 {
+		t.Fatalf("property count %d", len(got.Objects[0].Properties))
+	}
+	prop := got.Objects[0].Properties[0]
+	if prop.Type != btypes.PropPresentValue {
+		t.Fatalf("property id %d", prop.Type)
+	}
+	if prop.ArrayIndex != ArrayAll {
+		t.Fatalf("array index %d", prop.ArrayIndex)
+	}
+	accessErr, ok := prop.Data.(error)
+	if !ok {
+		t.Fatalf("data type %T", prop.Data)
+	}
+	want := fmt.Sprintf("object %s: class %s code %s", got.Objects[0].ID.String(), bacerr.ErrorCode(class).String(), bacerr.ErrorCode(code).String())
+	if accessErr.Error() != want {
+		t.Fatalf("error %q, want %q", accessErr.Error(), want)
+	}
+}
+
+func TestReadMultiplePropertyAckEmptyProperties(t *testing.T) {
+	obj := btypes.ObjectID{Type: btypes.AnalogInput, Instance: 1}
+
+	e := NewEncoder()
+	if err := e.ReadMultiplePropertyAck(1, btypes.MultiplePropertyData{
+		Objects: []btypes.Object{
+			{ID: obj, Properties: []btypes.Property{}},
+		},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	dec := NewDecoder(e.Bytes())
+	var apdu btypes.APDU
+	if err := dec.APDU(&apdu); err != nil {
+		t.Fatal(err)
+	}
+	var got btypes.MultiplePropertyData
+	if err := dec.ReadMultiplePropertyAck(&got); err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Objects) != 1 {
+		t.Fatalf("expected 1 object, got %d", len(got.Objects))
+	}
+	if got.Objects[0].ID != obj {
+		t.Fatalf("expected object %s, got %s", obj.String(), got.Objects[0].ID.String())
+	}
+	if len(got.Objects[0].Properties) != 0 {
+		t.Fatalf("expected 0 properties, got %d", len(got.Objects[0].Properties))
+	}
+}
+
+func TestReadMultiplePropertyAckContextTaggedPropertyNoDoubleAppend(t *testing.T) {
+	// Construct an RPM ack for one object with a property containing context-tagged data
+	// Property 19 is PROP_CONTROLLED_VARIABLE_REFERENCE which uses context tag 0 for object ID
+	obj := btypes.ObjectID{Type: btypes.AnalogInput, Instance: 1}
+	e := NewEncoder()
+	e.contextObjectID(0, obj.Type, obj.Instance)
+	e.openingTag(1) // Tag 1 open
+
+	// Property ID: 19 (PROP_CONTROLLED_VARIABLE_REFERENCE)
+	e.contextEnumerated(2, uint32(btypes.PROP_CONTROLLED_VARIABLE_REFERENCE))
+
+	// Tag 4 Opening (value opening)
+	e.openingTag(4)
+	// Context tag 0 (Device/Object ID) inside property value
+	e.contextObjectID(0, btypes.AnalogInput, 2)
+	e.closingTag(4) // Tag 4 close
+
+	e.closingTag(1) // Tag 1 close
+
+	dec := NewDecoder(e.Bytes())
+	var got btypes.MultiplePropertyData
+	if err := dec.ReadMultiplePropertyAck(&got); err != nil {
+		t.Fatal(err)
+	}
+
+	// Must contain exactly 1 object, not duplicated into 2 objects
+	if len(got.Objects) != 1 {
+		t.Fatalf("expected 1 object, got %d (double append bug)", len(got.Objects))
+	}
+	if got.Objects[0].ID != obj {
+		t.Fatalf("expected object %s, got %s", obj.String(), got.Objects[0].ID.String())
+	}
+	if len(got.Objects[0].Properties) != 1 {
+		t.Fatalf("expected 1 property, got %d", len(got.Objects[0].Properties))
 	}
 }
