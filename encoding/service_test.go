@@ -359,3 +359,35 @@ func TestReadMultiplePropertyAckAccessErrorKeepsPropertyID(t *testing.T) {
 		t.Fatalf("error %q, want %q", accessErr.Error(), want)
 	}
 }
+
+func TestReadMultiplePropertyAckEmptyProperties(t *testing.T) {
+	obj := btypes.ObjectID{Type: btypes.AnalogInput, Instance: 1}
+
+	e := NewEncoder()
+	if err := e.ReadMultiplePropertyAck(1, btypes.MultiplePropertyData{
+		Objects: []btypes.Object{
+			{ID: obj, Properties: []btypes.Property{}},
+		},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	dec := NewDecoder(e.Bytes())
+	var apdu btypes.APDU
+	if err := dec.APDU(&apdu); err != nil {
+		t.Fatal(err)
+	}
+	var got btypes.MultiplePropertyData
+	if err := dec.ReadMultiplePropertyAck(&got); err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Objects) != 1 {
+		t.Fatalf("expected 1 object, got %d", len(got.Objects))
+	}
+	if got.Objects[0].ID != obj {
+		t.Fatalf("expected object %s, got %s", obj.String(), got.Objects[0].ID.String())
+	}
+	if len(got.Objects[0].Properties) != 0 {
+		t.Fatalf("expected 0 properties, got %d", len(got.Objects[0].Properties))
+	}
+}

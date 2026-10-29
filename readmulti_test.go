@@ -85,6 +85,7 @@ func TestReadMultiPropertyReplyMatch(t *testing.T) {
 
 	tests := []struct {
 		name     string
+		request  []btypes.Object
 		reply    []btypes.Object
 		errorAt  int
 		mismatch bool
@@ -136,6 +137,94 @@ func TestReadMultiPropertyReplyMatch(t *testing.T) {
 			errorAt:  2,
 			mismatch: false,
 		},
+		{
+			name: "wildcard device instance accepted",
+			request: []btypes.Object{
+				{
+					ID:         btypes.ObjectID{Type: btypes.DeviceType, Instance: btypes.MaxInstance},
+					Properties: []btypes.Property{{Type: btypes.PropObjectName, ArrayIndex: btypes.ArrayAll}},
+				},
+			},
+			reply: []btypes.Object{
+				{
+					ID:         btypes.ObjectID{Type: btypes.DeviceType, Instance: 160101},
+					Properties: []btypes.Property{{Type: btypes.PropObjectName, ArrayIndex: btypes.ArrayAll, Data: "Device-160101"}},
+				},
+			},
+			errorAt:  -1,
+			mismatch: false,
+		},
+		{
+			name: "wildcard instance rejected for non-device type",
+			request: []btypes.Object{
+				{
+					ID:         btypes.ObjectID{Type: btypes.AnalogInput, Instance: btypes.MaxInstance},
+					Properties: []btypes.Property{{Type: btypes.PropPresentValue, ArrayIndex: btypes.ArrayAll}},
+				},
+			},
+			reply: []btypes.Object{
+				{
+					ID:         btypes.ObjectID{Type: btypes.AnalogInput, Instance: 1},
+					Properties: []btypes.Property{{Type: btypes.PropPresentValue, ArrayIndex: btypes.ArrayAll, Data: float32(1)}},
+				},
+			},
+			errorAt:  -1,
+			mismatch: true,
+		},
+		{
+			name: "prop all accepts expanded properties",
+			request: []btypes.Object{
+				{
+					ID:         btypes.ObjectID{Type: btypes.AnalogInput, Instance: 1},
+					Properties: []btypes.Property{{Type: btypes.PropAllProperties, ArrayIndex: btypes.ArrayAll}},
+				},
+			},
+			reply: []btypes.Object{
+				{
+					ID: btypes.ObjectID{Type: btypes.AnalogInput, Instance: 1},
+					Properties: []btypes.Property{
+						{Type: btypes.PropObjectName, ArrayIndex: btypes.ArrayAll, Data: "AI-1"},
+						{Type: btypes.PropPresentValue, ArrayIndex: btypes.ArrayAll, Data: float32(21.5)},
+					},
+				},
+			},
+			errorAt:  -1,
+			mismatch: false,
+		},
+		{
+			name: "prop optional accepts empty properties list",
+			request: []btypes.Object{
+				{
+					ID:         btypes.ObjectID{Type: btypes.AnalogInput, Instance: 1},
+					Properties: []btypes.Property{{Type: btypes.PROP_OPTIONAL, ArrayIndex: btypes.ArrayAll}},
+				},
+			},
+			reply: []btypes.Object{
+				{
+					ID:         btypes.ObjectID{Type: btypes.AnalogInput, Instance: 1},
+					Properties: []btypes.Property{},
+				},
+			},
+			errorAt:  -1,
+			mismatch: false,
+		},
+		{
+			name: "empty properties list rejected without prop optional",
+			request: []btypes.Object{
+				{
+					ID:         btypes.ObjectID{Type: btypes.AnalogInput, Instance: 1},
+					Properties: []btypes.Property{{Type: btypes.PropPresentValue, ArrayIndex: btypes.ArrayAll}},
+				},
+			},
+			reply: []btypes.Object{
+				{
+					ID:         btypes.ObjectID{Type: btypes.AnalogInput, Instance: 1},
+					Properties: []btypes.Property{},
+				},
+			},
+			errorAt:  -1,
+			mismatch: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -156,12 +245,17 @@ func TestReadMultiPropertyReplyMatch(t *testing.T) {
 				hook = logtest.NewLocal(c.log)
 			}
 
+			req := tt.request
+			if req == nil {
+				req = request
+			}
+
 			link.Inject(datalink.ReceivedMessage{
 				Data: readMultipleAckPacket(t, &device.Addr, tt.reply, tt.errorAt),
 				Src:  &device.Addr,
 			})
 
-			got, err := c.ReadMultiProperty(device, btypes.MultiplePropertyData{Objects: request})
+			got, err := c.ReadMultiProperty(device, btypes.MultiplePropertyData{Objects: req})
 			if tt.mismatch {
 				require.ErrorIs(t, err, ErrReplyMismatch)
 				require.Empty(t, got.Objects)
@@ -173,16 +267,17 @@ func TestReadMultiPropertyReplyMatch(t *testing.T) {
 			require.Len(t, got.Objects, len(tt.reply))
 			for i := range tt.reply {
 				assert.Equal(t, tt.reply[i].ID, got.Objects[i].ID)
-				require.NotEmpty(t, got.Objects[i].Properties)
-				gotProp := got.Objects[i].Properties[0]
-				assert.Equal(t, btypes.PropPresentValue, gotProp.Type)
-				if i == tt.errorAt {
-					_, ok := gotProp.Data.(error)
-					assert.True(t, ok)
-					continue
+				require.Len(t, got.Objects[i].Properties, len(tt.reply[i].Properties))
+				for j, prop := range tt.reply[i].Properties {
+					gotProp := got.Objects[i].Properties[j]
+					assert.Equal(t, prop.Type, gotProp.Type)
+					if i == tt.errorAt {
+						_, ok := gotProp.Data.(error)
+						assert.True(t, ok)
+						continue
+					}
+					assert.Equal(t, prop.Data, gotProp.Data)
 				}
-				require.NotEmpty(t, tt.reply[i].Properties)
-				assert.Equal(t, tt.reply[i].Properties[0].Data, gotProp.Data)
 			}
 		})
 	}

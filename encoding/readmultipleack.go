@@ -121,9 +121,11 @@ func (d *Decoder) objectsWithData(objects *[]btypes.Object) error {
 			return &ErrorWrongTagType{OpeningTag}
 		}
 
-		// Tag 2 - Property Tag
+		// Tag 2 - Property Tag (or Tag 1 closing if the object has no properties)
 		tag, meta, length = d.tagNumberAndValue()
-		if tag != 2 {
+		if tag == 1 && meta.isClosing() {
+			// Object has an empty list of results (e.g. PROP_OPTIONAL with no optional properties).
+		} else if tag != 2 {
 			return &ErrorIncorrectTag{Expected: 2, Given: tag}
 		}
 

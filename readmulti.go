@@ -130,21 +130,56 @@ func matchReadMultipleReply(requested, reply btypes.MultiplePropertyData) error 
 		return fmt.Errorf("%w: object count %d, requested %d", ErrReplyMismatch, len(reply.Objects), len(requested.Objects))
 	}
 	for i := range requested.Objects {
-		if reply.Objects[i].ID != requested.Objects[i].ID {
-			return fmt.Errorf("%w: object %d id mismatch", ErrReplyMismatch, i)
+		reqObj := requested.Objects[i]
+		repObj := reply.Objects[i]
+
+		if !matchObjectID(reqObj.ID, repObj.ID) {
+			return fmt.Errorf("%w: object %d id mismatch (requested %s, reply %s)", ErrReplyMismatch, i, reqObj.ID.String(), repObj.ID.String())
 		}
-		if len(reply.Objects[i].Properties) == 0 {
+
+		var hasWildcardProp, hasOptionalProp bool
+		allowed := make(map[btypes.PropertyType]struct{}, len(reqObj.Properties))
+		for _, prop := range reqObj.Properties {
+			switch prop.Type {
+			// PropAllProperties (PROP_ALL = 8) and PROP_REQUIRED (105)
+			case btypes.PropAllProperties, btypes.PROP_REQUIRED:
+				hasWildcardProp = true
+			case btypes.PROP_OPTIONAL:
+				hasWildcardProp = true
+				hasOptionalProp = true
+			default:
+				allowed[prop.Type] = struct{}{}
+			}
+		}
+
+		// Clause 15.7.2 & BTL IC 135-2010-6: An empty property list is valid ONLY when
+		// PROP_OPTIONAL was requested and the object has no optional properties.
+		if len(repObj.Properties) == 0 && !hasOptionalProp {
 			return fmt.Errorf("%w: object %d has no properties", ErrReplyMismatch, i)
 		}
-		allowed := make(map[btypes.PropertyType]struct{}, len(requested.Objects[i].Properties))
-		for _, prop := range requested.Objects[i].Properties {
-			allowed[prop.Type] = struct{}{}
+
+		if hasWildcardProp {
+			continue
 		}
-		for _, prop := range reply.Objects[i].Properties {
+
+		for _, prop := range repObj.Properties {
 			if _, ok := allowed[prop.Type]; !ok {
 				return fmt.Errorf("%w: object %d property %d was not requested", ErrReplyMismatch, i, prop.Type)
 			}
 		}
 	}
 	return nil
+}
+
+func matchObjectID(requested, reply btypes.ObjectID) bool {
+	if requested == reply {
+		return true
+	}
+	// BACnet Clause 15.7.2 (Addendum 135-2001a / 135-2016br-7): Device instance
+	// 4194303 (btypes.MaxInstance) is the indefinite/wildcard identifier matching
+	// the responding device's local Device object.
+	if requested.Type == btypes.DeviceType && requested.Instance == btypes.MaxInstance {
+		return reply.Type == btypes.DeviceType && reply.Instance < btypes.MaxInstance
+	}
+	return false
 }
