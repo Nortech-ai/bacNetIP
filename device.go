@@ -143,11 +143,13 @@ func (c *client) ClientRun() {
 		addr, n, err := c.dataLink.Receive(b)
 
 		if c.closed.Load() {
+			c.readBufferPool.Put(b)
 			return
 		}
 
 		// If the data link is closed, return
 		if isClosedErr(err) {
+			c.readBufferPool.Put(b)
 			c.log.Debugf("data link closed: %v", err)
 			return
 		}
@@ -155,10 +157,14 @@ func (c *client) ClientRun() {
 		// Otherwise if we got an unknown error, continue.
 		// Pcap drops datagrams for another local socket with an error here.
 		if err != nil {
+			c.readBufferPool.Put(b)
 			continue
 		}
 
-		go c.handleMsg(addr, b[:n])
+		go func(src *btypes.Address, buf []byte) {
+			defer c.readBufferPool.Put(buf)
+			c.handleMsg(src, buf[:n])
+		}(addr, b)
 	}
 }
 
@@ -269,12 +275,12 @@ func (c *client) handleMsg(src *btypes.Address, b []byte) {
 		case btypes.SimpleAck:
 			c.log.Debug("Received Simple Ack")
 			svc := apdu.Service
-			c.deliver(src, &npdu, apdu.InvokeId, &svc, send)
+			c.deliver(src, &npdu, apdu.InvokeId, &svc, append([]byte(nil), send...))
 		case btypes.ComplexAck:
 			// Segmented ComplexAck is unsupported; requests do not accept segmentation.
 			c.log.Debug("Received Complex Ack")
 			svc := apdu.Service
-			c.deliver(src, &npdu, apdu.InvokeId, &svc, send)
+			c.deliver(src, &npdu, apdu.InvokeId, &svc, append([]byte(nil), send...))
 		case btypes.Error:
 			bacErr := fmt.Errorf("error class %s code %s", apdu.Error.Class.String(), apdu.Error.Code.String())
 			svc := apdu.Service
