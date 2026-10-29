@@ -182,10 +182,6 @@ func (d *Decoder) objectsWithData(objects *[]btypes.Object) error {
 								array = append(array, dt)
 							}
 						} else {
-							// TODO how to parse it in Context???
-							*objects = append(*objects, obj)
-							//return nil
-
 							lenValue := d.value(meta)
 							tag = tagTypeInContext(prop.Type, tag)
 							if tag == maxTag {

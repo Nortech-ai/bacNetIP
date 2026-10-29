@@ -391,3 +391,40 @@ func TestReadMultiplePropertyAckEmptyProperties(t *testing.T) {
 		t.Fatalf("expected 0 properties, got %d", len(got.Objects[0].Properties))
 	}
 }
+
+func TestReadMultiplePropertyAckContextTaggedPropertyNoDoubleAppend(t *testing.T) {
+	// Construct an RPM ack for one object with a property containing context-tagged data
+	// Property 19 is PROP_CONTROLLED_VARIABLE_REFERENCE which uses context tag 0 for object ID
+	obj := btypes.ObjectID{Type: btypes.AnalogInput, Instance: 1}
+	e := NewEncoder()
+	e.contextObjectID(0, obj.Type, obj.Instance)
+	e.openingTag(1) // Tag 1 open
+
+	// Property ID: 19 (PROP_CONTROLLED_VARIABLE_REFERENCE)
+	e.contextEnumerated(2, uint32(btypes.PROP_CONTROLLED_VARIABLE_REFERENCE))
+
+	// Tag 4 Opening (value opening)
+	e.openingTag(4)
+	// Context tag 0 (Device/Object ID) inside property value
+	e.contextObjectID(0, btypes.AnalogInput, 2)
+	e.closingTag(4) // Tag 4 close
+
+	e.closingTag(1) // Tag 1 close
+
+	dec := NewDecoder(e.Bytes())
+	var got btypes.MultiplePropertyData
+	if err := dec.ReadMultiplePropertyAck(&got); err != nil {
+		t.Fatal(err)
+	}
+
+	// Must contain exactly 1 object, not duplicated into 2 objects
+	if len(got.Objects) != 1 {
+		t.Fatalf("expected 1 object, got %d (double append bug)", len(got.Objects))
+	}
+	if got.Objects[0].ID != obj {
+		t.Fatalf("expected object %s, got %s", obj.String(), got.Objects[0].ID.String())
+	}
+	if len(got.Objects[0].Properties) != 1 {
+		t.Fatalf("expected 1 property, got %d", len(got.Objects[0].Properties))
+	}
+}
