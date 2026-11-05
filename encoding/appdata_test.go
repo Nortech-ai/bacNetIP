@@ -175,3 +175,62 @@ func TestReverseBitsInByte(t *testing.T) {
 		t.Errorf("byteReverseBits error")
 	}
 }
+
+func TestEmptyCharacterString(t *testing.T) {
+	t.Run("StandardEmptyStringWithEncodingByte", func(t *testing.T) {
+		enc := NewEncoder()
+		requireNoError := func(err error) {
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+		requireNoError(enc.AppData("", false))
+		dec := NewDecoder(enc.Bytes())
+		out, err := dec.AppData()
+		requireNoError(err)
+		s, ok := out.(string)
+		if !ok || s != "" {
+			t.Fatalf("expected empty string, got %T %q", out, s)
+		}
+	})
+
+	t.Run("ZeroLengthTagCharacterStringNoPanic", func(t *testing.T) {
+		// Tag 7 (CharacterString) with length 0 (no encoding byte)
+		b := []byte{0x70} // Tag 7, app tag (context=0), length 0
+		dec := NewDecoder(b)
+		out, err := dec.AppData()
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+		s, ok := out.(string)
+		if !ok || s != "" {
+			t.Fatalf("expected empty string, got %T %q", out, s)
+		}
+	})
+
+	t.Run("NegativeLengthDirectCallNoPanic", func(t *testing.T) {
+		dec := NewDecoder([]byte{})
+		var s string
+		err := dec.string(&s, -1)
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+		if s != "" {
+			t.Fatalf("expected empty string, got %q", s)
+		}
+	})
+
+	t.Run("ZeroLengthOctetStringNoPanic", func(t *testing.T) {
+		// Tag 6 (OctetString) with length 0
+		b := []byte{0x60}
+		dec := NewDecoder(b)
+		out, err := dec.AppData()
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+		octets, ok := out.([]byte)
+		if !ok || len(octets) != 0 {
+			t.Fatalf("expected empty byte slice, got %T %v", out, octets)
+		}
+	})
+}

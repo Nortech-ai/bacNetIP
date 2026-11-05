@@ -1,9 +1,13 @@
 package bacnet
 
 import (
+	"errors"
 	"fmt"
 	"io"
+	"net"
+	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/Nortech-ai/bacNetIP/btypes"
@@ -41,6 +45,7 @@ type client struct {
 	utsm           *utsm.Manager
 	readBufferPool sync.Pool
 	log            *log.Logger
+	closed         atomic.Bool
 }
 
 type ClientBuilder struct {
@@ -131,26 +136,55 @@ func NewClient(cb *ClientBuilder) (Client, error) {
 
 func (c *client) ClientRun() {
 	for {
+		if c.closed.Load() {
+			return
+		}
 		b := c.readBufferPool.Get().([]byte)
 		addr, n, err := c.dataLink.Receive(b)
 
+		if c.closed.Load() {
+			c.readBufferPool.Put(b)
+			return
+		}
+
 		// If the data link is closed, return
-		if err == io.EOF {
-			c.log.Error(fmt.Errorf("data link closed: %w", err))
+		if isClosedErr(err) {
+			c.readBufferPool.Put(b)
+			c.log.Debugf("data link closed: %v", err)
 			return
 		}
 
 		// Otherwise if we got an unknown error, continue.
 		// Pcap drops datagrams for another local socket with an error here.
 		if err != nil {
+			c.readBufferPool.Put(b)
 			continue
 		}
 
-		go c.handleMsg(addr, b[:n])
+		go func(src *btypes.Address, buf []byte) {
+			defer c.readBufferPool.Put(buf)
+			c.handleMsg(src, buf[:n])
+		}(addr, b)
 	}
 }
 
+func isClosedErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, io.EOF) || errors.Is(err, net.ErrClosed) {
+		return true
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "use of closed network connection") || strings.Contains(msg, "data link closed")
+}
+
 func (c *client) handleMsg(src *btypes.Address, b []byte) {
+	defer func() {
+		if r := recover(); r != nil {
+			c.log.Errorf("recovered panic in handleMsg: %v", r)
+		}
+	}()
 	var header btypes.BVLC
 	var npdu btypes.NPDU
 	var apdu btypes.APDU
@@ -241,12 +275,12 @@ func (c *client) handleMsg(src *btypes.Address, b []byte) {
 		case btypes.SimpleAck:
 			c.log.Debug("Received Simple Ack")
 			svc := apdu.Service
-			c.deliver(src, &npdu, apdu.InvokeId, &svc, send)
+			c.deliver(src, &npdu, apdu.InvokeId, &svc, append([]byte(nil), send...))
 		case btypes.ComplexAck:
 			// Segmented ComplexAck is unsupported; requests do not accept segmentation.
 			c.log.Debug("Received Complex Ack")
 			svc := apdu.Service
-			c.deliver(src, &npdu, apdu.InvokeId, &svc, send)
+			c.deliver(src, &npdu, apdu.InvokeId, &svc, append([]byte(nil), send...))
 		case btypes.Error:
 			bacErr := fmt.Errorf("error class %s code %s", apdu.Error.Class.String(), apdu.Error.Code.String())
 			svc := apdu.Service
@@ -363,6 +397,7 @@ func (c *client) ClientClose(closeLogs bool) error {
 
 // Close free resources for the client. Always call this function when using NewClient
 func (c *client) Close() error {
+	c.closed.Store(true)
 	if c.dataLink != nil {
 		c.dataLink.Close()
 	}

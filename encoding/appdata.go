@@ -152,11 +152,17 @@ func (d *Decoder) AppDataOfTag(tag uint8, len int) (interface{}, error) {
 		d.double(&x)
 		return x, d.Error()
 	case tagOctetString:
+		if len <= 0 {
+			return []byte{}, nil
+		}
 		var b []byte
 		d.octetstring(&b, len)
 		return b, d.Error()
 
 	case tagCharacterString:
+		if len <= 0 {
+			return "", nil
+		}
 		var s string
 		// Subtract 1 to length to account for the encoding byte
 		err := d.string(&s, len-1)
