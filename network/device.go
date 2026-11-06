@@ -31,6 +31,7 @@ func NewDevice(net *Network, device *Device) (*Device, error) {
 	}
 	dev := &btypes.Device{
 		Ip:            device.Ip,
+		Port:          device.Port,
 		DeviceID:      device.DeviceID,
 		NetworkNumber: device.NetworkNumber,
 		MacMSTP:       device.MacMSTP,
