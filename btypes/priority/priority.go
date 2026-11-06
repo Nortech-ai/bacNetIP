@@ -1,9 +1,8 @@
 package priority
 
 import (
-	"reflect"
-
 	"github.com/Nortech-ai/bacNetIP/btypes"
+	"github.com/Nortech-ai/bacNetIP/btypes/null"
 	"github.com/Nortech-ai/bacNetIP/helpers/data"
 	"github.com/Nortech-ai/bacNetIP/helpers/nils"
 )
@@ -13,17 +12,8 @@ func BuildFloat32(in btypes.PropertyData, objType btypes.ObjectType) (pri *Float
 	_, arr := data.ToArr(in)
 	for i, value := range arr {
 		var returnValue *float32
-		typeOf := reflect.TypeOf(value)
-		if typeOf.Name() != "Null" {
-			if objType == btypes.BinaryOutput || objType == btypes.BinaryValue { //convert from uint32
-				f := value.(uint32)
-				flt := float32(f)
-				returnValue = nils.NewFloat32(flt)
-			} else {
-				f := value.(uint32)
-				flt := float32(f)
-				returnValue = nils.NewFloat32(flt)
-			}
+		if f, ok := priorityFloat(value, objType); ok {
+			returnValue = nils.NewFloat32(f)
 		}
 		switch i {
 		case 0:
@@ -62,6 +52,28 @@ func BuildFloat32(in btypes.PropertyData, objType btypes.ObjectType) (pri *Float
 		}
 	}
 	return
+}
+
+// priorityFloat converts one priority-array element.
+// Analog values are REAL. Binary and multi-state values are unsigned.
+// Null, and a type that does not match the object, contributes no value.
+func priorityFloat(value interface{}, objType btypes.ObjectType) (float32, bool) {
+	if value == nil {
+		return 0, false
+	}
+	if _, ok := value.(null.Null); ok {
+		return 0, false
+	}
+	switch objType {
+	case btypes.AnalogInput, btypes.AnalogOutput, btypes.AnalogValue:
+		f, ok := value.(float32)
+		return f, ok
+	case btypes.BinaryInput, btypes.BinaryOutput, btypes.BinaryValue, btypes.MultiStateInput, btypes.MultiStateOutput, btypes.MultiStateValue:
+		u, ok := value.(uint32)
+		return float32(u), ok
+	default:
+		return 0, false
+	}
 }
 
 type Float32 struct {
