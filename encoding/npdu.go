@@ -111,19 +111,28 @@ func (d *Decoder) NPDU(n *btypes.NPDU) (addr []btypes.Address, err error) {
 			n.Source = &btypes.Address{}
 			d.decode(&n.Source.Net)
 		}
-		if n.NetworkLayerMessageType == ndpu.IamRouterToNetwork { //used for decoding a bacnet network number on a What-Is-Network-Number 0x12
-			n.Source = &btypes.Address{}
+		if n.NetworkLayerMessageType == ndpu.IamRouterToNetwork && d.err == nil {
+			// List of 2-octet network numbers. Stop when fewer than 2 bytes remain.
+			// An extra read used to set d.err and drop a router that advertised one network.
+			if n.Source == nil {
+				n.Source = &btypes.Address{}
+			}
+			seen := make(map[uint16]struct{})
 			var nets []btypes.Address
-			d.decode(&n.Source.Net) //decode the first network
-			nets = append(nets, *n.Source)
-			size := d.len()
-			for i := d.len(); i <= size; i++ {
-				d.decode(&n.Source.Net)
-				for _, adr := range nets {
-					if adr.Net != n.Source.Net { //make sure that a network is only added once
-						nets = append(nets, *n.Source)
-					}
+			for d.len() >= 2 {
+				var netNum uint16
+				d.decode(&netNum)
+				if d.err != nil {
+					break
 				}
+				if _, ok := seen[netNum]; ok {
+					continue
+				}
+				seen[netNum] = struct{}{}
+				nets = append(nets, btypes.Address{Net: netNum})
+			}
+			if len(nets) > 0 && n.Source.Net == 0 {
+				n.Source.Net = nets[0].Net
 			}
 			addr = nets
 		}
