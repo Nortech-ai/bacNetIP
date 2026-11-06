@@ -102,14 +102,14 @@ func writeProp(cmd *cobra.Command, args []string) {
 		propInt = btypes.PropertyType(uint32(i))
 	} else {
 		propInt, err = btypes.Get(propertyType)
+		if err != nil {
+			log.Fatal(err)
+			return
+		}
 	}
 
 	if btypes.IsDeviceProperty(propInt) {
 		objectType = 8
-	}
-
-	if err != nil {
-		log.Fatal(err)
 	}
 
 	rp := btypes.PropertyData{

@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/kr/pretty"
 	"github.com/Nortech-ai/bacNetIP"
 	pprint "github.com/Nortech-ai/bacNetIP/helpers/print"
+	"github.com/kr/pretty"
 )
 
 func TestNetwork_Whois(t *testing.T) {

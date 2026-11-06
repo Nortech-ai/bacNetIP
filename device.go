@@ -263,7 +263,7 @@ func (c *client) handleMsg(src *btypes.Address, b []byte) {
 			case btypes.ServiceUnconfirmedWhoIs:
 				dec := encoding.NewDecoder(apdu.RawData)
 				var low, high int32
-				dec.WhoIs(&low, &high)
+				_ = dec.WhoIs(&low, &high)
 				// For now we are going to ignore who is request.
 				//log.WithFields(log.Fields{"low": low, "high": high}).Debug("WHO IS Request")
 			default:
@@ -399,7 +399,10 @@ func (c *client) ClientClose(closeLogs bool) error {
 func (c *client) Close() error {
 	c.closed.Store(true)
 	if c.dataLink != nil {
-		c.dataLink.Close()
+		err := c.dataLink.Close()
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil

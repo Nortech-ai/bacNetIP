@@ -3,8 +3,8 @@ package network
 import (
 	"errors"
 
+	bacnet "github.com/Nortech-ai/bacNetIP"
 	log "github.com/sirupsen/logrus"
-	"github.com/Nortech-ai/bacNetIP"
 )
 
 type Network struct {
@@ -55,9 +55,5 @@ func (net *Network) NetworkRun() {
 	if net.bacnet != nil {
 		net.bacnet.ClientRun()
 	}
-
-}
-
-func (net *Network) store() {
 
 }

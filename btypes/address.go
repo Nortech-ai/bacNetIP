@@ -53,10 +53,7 @@ func (a *Address) IsSubBroadcast() bool {
 
 // IsUnicast checks to see if packet is meant to be a unicast
 func (a *Address) IsUnicast() bool {
-	if a.MacLen == 6 {
-		return true
-	}
-	return false
+	return a.MacLen == 6
 }
 
 // UDPAddr parses the mac address and returns a proper net.UDPAddr

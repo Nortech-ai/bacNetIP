@@ -22,7 +22,10 @@ func (c *client) IAm(dest btypes.Address, iam btypes.IAm) error {
 	}
 	enc := encoding.NewEncoder()
 	enc.NPDU(npdu)
-	enc.IAm(iam)
-	_, err := c.Send(dest, npdu, enc.Bytes(), nil)
+	err := enc.IAm(iam)
+	if err != nil {
+		return err
+	}
+	_, err = c.Send(dest, npdu, enc.Bytes(), nil)
 	return err
 }

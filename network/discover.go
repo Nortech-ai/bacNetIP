@@ -3,9 +3,9 @@ package network
 import (
 	"fmt"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/Nortech-ai/bacNetIP"
 	"github.com/Nortech-ai/bacNetIP/btypes"
+	log "github.com/sirupsen/logrus"
 )
 
 type DevicePoints struct {

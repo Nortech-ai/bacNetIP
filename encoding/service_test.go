@@ -34,7 +34,7 @@ func TestReadPropertyService(t *testing.T) {
 				Instance: 1,
 			},
 			Properties: []btypes.Property{
-				btypes.Property{
+				{
 					Type:       85,
 					ArrayIndex: ArrayAll,
 				},

@@ -24,9 +24,7 @@ const DefaultPort = 0xBAC0 //47808
 var errNotForSocket = errors.New("udp datagram is not for this socket")
 
 type udpDataLink struct {
-	netInterface                *net.Interface
 	myAddress, broadcastAddress *btypes.Address
-	port                        int
 	listener                    *net.UDPConn
 }
 
@@ -120,7 +118,8 @@ func NewPcapDataLink(inter string, port int, timeout time.Duration) (link DataLi
 	udpLocal, ok := conn.LocalAddr().(*net.UDPAddr)
 	if !ok || udpLocal.Port == 0 {
 		handle.Close()
-		conn.Close()
+		//close must not replace the setup error
+		_ = conn.Close()
 		return nil, fmt.Errorf("pcap socket has no local port")
 	}
 
@@ -129,7 +128,8 @@ func NewPcapDataLink(inter string, port int, timeout time.Duration) (link DataLi
 	err = handle.SetBPFFilter(pcapCaptureFilter(udpLocal.Port, port))
 	if err != nil {
 		handle.Close()
-		conn.Close()
+		//close must not replace the setup error
+		_ = conn.Close()
 		return nil, fmt.Errorf("failed to set BPF filter: %w", err)
 	}
 

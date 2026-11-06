@@ -11,7 +11,7 @@ type Handler struct {
 	Store *cache.Cache
 }
 
-//Init init store
+// Init init store
 func Init() *Handler {
 	newStore := cache.New(cache.NoExpiration, cache.DefaultExpiration)
 	store := &Handler{Store: newStore}

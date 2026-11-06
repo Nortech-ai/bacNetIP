@@ -3,10 +3,10 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/spf13/cobra"
 	"github.com/Nortech-ai/bacNetIP"
 	pprint "github.com/Nortech-ai/bacNetIP/helpers/print"
 	"github.com/Nortech-ai/bacNetIP/network"
+	"github.com/spf13/cobra"
 )
 
 // Flags

@@ -102,7 +102,7 @@ func (t ObjectType) String() string {
 	if !ok {
 		return fmt.Sprintf("Unknown (%d)", t)
 	}
-	return fmt.Sprintf("%s", s)
+	return s
 }
 
 type ObjectInstance uint32

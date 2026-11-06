@@ -27,12 +27,10 @@ const (
 )
 
 type state struct {
-	id           int
-	state        int
-	requestTimer int
-	data         chan interface{}
-	source       *btypes.Address
-	service      btypes.ServiceConfirmed
+	state   int
+	data    chan interface{}
+	source  *btypes.Address
+	service btypes.ServiceConfirmed
 }
 
 // TSM is the transaction state manager. It handles passing data to other

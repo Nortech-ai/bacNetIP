@@ -44,7 +44,10 @@ func (e *Encoder) ReadProperty(invokeID uint8, data btypes.PropertyData) error {
 		SegmentedMessage: false,
 	}
 	e.APDU(a)
-	e.readPropertyHeader(initialTagPos, &data)
+	_, err := e.readPropertyHeader(initialTagPos, &data)
+	if err != nil {
+		return err
+	}
 	return e.Error()
 }
 
@@ -122,8 +125,7 @@ func (d *Decoder) ReadProperty(data *btypes.PropertyData) error {
 		// arra length
 
 		// Tag 2: Array Length (OPTIONAL)
-		var lenValue uint32
-		lenValue = d.value(meta)
+		lenValue := d.value(meta)
 
 		var openTag uint8
 		// I tried to not use magic numbers but it doesn't look like it can be avoided
@@ -139,7 +141,6 @@ func (d *Decoder) ReadProperty(data *btypes.PropertyData) error {
 		}
 
 		if openTag == 3 {
-			var err error
 			// We subtract one to ignore the closing tag.
 			datalist := make([]interface{}, 0)
 
@@ -158,10 +159,6 @@ func (d *Decoder) ReadProperty(data *btypes.PropertyData) error {
 			// If we only have one value in the list, lets just return that value
 			if len(datalist) == 1 {
 				prop.Data = datalist[0]
-			}
-			if err != nil {
-				d.err = err
-				return err
 			}
 		}
 	} else {

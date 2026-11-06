@@ -3,7 +3,7 @@ package network
 import (
 	"fmt"
 
-	"github.com/Nortech-ai/bacNetIP"
+	bacnet "github.com/Nortech-ai/bacNetIP"
 	"github.com/Nortech-ai/bacNetIP/btypes"
 	segmentation2 "github.com/Nortech-ai/bacNetIP/btypes/segmentation"
 
@@ -20,7 +20,6 @@ var networkNumber = 0
 var macMSTP = 0
 var segmentation = segmentation2.SegmentedBoth
 var MaxApdu uint32 = btypes.MaxAPDU1476
-var storeID = "my-id"
 
 /*
 MaxApdu

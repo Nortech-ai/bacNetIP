@@ -45,7 +45,7 @@ func (s *subscriber) LastReceivedTimeout(d time.Duration) SubscriberOption {
 func (s *subscriber) getTimeout() time.Duration {
 	s.mutex.Lock()
 	// Deadline is x seconds after the last packet we received.
-	timeout := s.lastReceived.Add(s.lastReceivedTimeout).Sub(time.Now())
+	timeout := time.Until(s.lastReceived.Add(s.lastReceivedTimeout))
 	s.mutex.Unlock()
 	return timeout
 }

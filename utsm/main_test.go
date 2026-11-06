@@ -16,8 +16,8 @@ func sub(t *testing.T, m *Manager, start, end int) {
 	t.Logf("[%d, %d] %v", start, end, b)
 }
 
-func publisher(t *testing.T, m *Manager) {
-	for i := 0; i < 5; i++ {
+func publisher(m *Manager) {
+	for i := range 5 {
 		go m.Publish(20, fmt.Sprintf("HI!%d", i))
 		time.Sleep(time.Duration(100) * time.Millisecond)
 	}
@@ -33,7 +33,7 @@ func TestUTSM(t *testing.T) {
 	wg.Add(3)
 	go func() {
 		defer wg.Done()
-		publisher(t, m)
+		publisher(m)
 	}()
 	go func() {
 		defer wg.Done()

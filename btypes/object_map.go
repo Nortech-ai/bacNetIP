@@ -8,7 +8,7 @@ type ObjectMap map[ObjectType]map[ObjectInstance]Object
 func (o ObjectMap) Len() int {
 	counter := 0
 	for _, t := range o {
-		for _ = range t {
+		for range t {
 			counter++
 		}
 

@@ -7,9 +7,6 @@ import "github.com/Nortech-ai/bacNetIP/btypes"
 // limit
 const epochYear = 1990
 
-// If the values == 0XFF, that means it is not specified. We will take that to
-const notDefined = 0xff
-
 func IsOddMonth(month int) bool {
 	return month == 13
 }
@@ -28,18 +25,6 @@ func IsEvenDayOfMonth(day int) bool {
 
 func IsOddDayOfMonth(day int) bool {
 	return day == 32
-}
-
-func (e *Encoder) date(dt btypes.Date) {
-	// We don't want to override an unspecified time date
-	if dt.Year != btypes.UnspecifiedTime {
-		e.write(uint8(dt.Year - epochYear))
-	} else {
-		e.write(uint8(dt.Year))
-	}
-	e.write(uint8(dt.Month))
-	e.write(uint8(dt.Day))
-	e.write(uint8(dt.DayOfWeek))
 }
 
 func (d *Decoder) date(dt *btypes.Date, length int) {
@@ -66,14 +51,6 @@ func (d *Decoder) date(dt *btypes.Date, length int) {
 	dt.DayOfWeek = btypes.DayOfWeek(data[3])
 }
 
-func (e *Encoder) time(t btypes.Time) {
-	e.write(uint8(t.Hour))
-	e.write(uint8(t.Minute))
-	e.write(uint8(t.Second))
-
-	// Stored as 1/100 of a second
-	e.write(uint8(t.Millisecond / 10))
-}
 func (d *Decoder) time(t *btypes.Time, length int) {
 	if length <= 0 {
 		return

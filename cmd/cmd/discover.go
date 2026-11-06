@@ -6,10 +6,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sirupsen/logrus"
-	"github.com/spf13/cobra"
 	"github.com/Nortech-ai/bacNetIP"
 	"github.com/Nortech-ai/bacNetIP/btypes"
+	"github.com/sirupsen/logrus"
+	"github.com/spf13/cobra"
 )
 
 var runDiscover bool

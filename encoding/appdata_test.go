@@ -7,7 +7,7 @@ import (
 	"github.com/Nortech-ai/bacNetIP/btypes"
 )
 
-func subTestSimpleData(t *testing.T, d *Decoder, x interface{}) func(t *testing.T) {
+func subTestSimpleData(d *Decoder, x interface{}) func(t *testing.T) {
 	return func(t *testing.T) {
 		y, err := d.AppData()
 		if err != nil {
@@ -20,12 +20,12 @@ func subTestSimpleData(t *testing.T, d *Decoder, x interface{}) func(t *testing.
 }
 
 func TestSimpleDatabtypes(t *testing.T) {
-	t.Run("Specific function based encoding", generalSimpleDatabtypes(t, false))
-	t.Run("General Interface Encoding", generalSimpleDatabtypes(t, true))
+	t.Run("Specific function based encoding", generalSimpleDatabtypes(false))
+	t.Run("General Interface Encoding", generalSimpleDatabtypes(true))
 }
 
 // generic states if we plan to use specific or generic encoding
-func generalSimpleDatabtypes(t *testing.T, generic bool) func(t *testing.T) {
+func generalSimpleDatabtypes(generic bool) func(t *testing.T) {
 	return func(t *testing.T) {
 		enc := NewEncoder()
 		var real float32 = 3.14
@@ -88,16 +88,16 @@ func generalSimpleDatabtypes(t *testing.T, generic bool) func(t *testing.T) {
 		}
 
 		dec := NewDecoder(enc.Bytes())
-		t.Run("Encoding Real", subTestSimpleData(t, dec, real))
-		t.Run("Encoding Double", subTestSimpleData(t, dec, double))
-		t.Run("Encoding Boolean", subTestSimpleData(t, dec, boolean))
-		t.Run("Encoding Flipped Boolean", subTestSimpleData(t, dec, !boolean))
-		t.Run("Encoding Uint8", subTestSimpleData(t, dec, small))
-		t.Run("Encoding Uint16", subTestSimpleData(t, dec, medium))
-		t.Run("Encoding uint24", subTestSimpleData(t, dec, wtf))
-		t.Run("Encoding uint32", subTestSimpleData(t, dec, large))
-		t.Run("Encoding string", subTestSimpleData(t, dec, str))
-		t.Run("Encoding object id", subTestSimpleData(t, dec, objID))
+		t.Run("Encoding Real", subTestSimpleData(dec, real))
+		t.Run("Encoding Double", subTestSimpleData(dec, double))
+		t.Run("Encoding Boolean", subTestSimpleData(dec, boolean))
+		t.Run("Encoding Flipped Boolean", subTestSimpleData(dec, !boolean))
+		t.Run("Encoding Uint8", subTestSimpleData(dec, small))
+		t.Run("Encoding Uint16", subTestSimpleData(dec, medium))
+		t.Run("Encoding uint24", subTestSimpleData(dec, wtf))
+		t.Run("Encoding uint32", subTestSimpleData(dec, large))
+		t.Run("Encoding string", subTestSimpleData(dec, str))
+		t.Run("Encoding object id", subTestSimpleData(dec, objID))
 
 		if err := dec.Error(); err != nil {
 			t.Fatal(err)

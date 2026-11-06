@@ -75,7 +75,6 @@ func (e *Encoder) AppData(i interface{}, typeBVBO bool) error {
 	}
 	//if point type is a BO or BV then set the type to type enum (data type 9)
 	if typeBVBO {
-		v := i.(uint32)
 		v, ok := i.(uint32)
 		if ok {
 			length := valueLength(v)

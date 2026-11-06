@@ -6,7 +6,6 @@ import (
 	bacnet "github.com/Nortech-ai/bacNetIP"
 	"github.com/Nortech-ai/bacNetIP/btypes"
 	"github.com/Nortech-ai/bacNetIP/btypes/null"
-	log "github.com/sirupsen/logrus"
 )
 
 type Write struct {
@@ -42,24 +41,9 @@ func (device *Device) Write(write *Write) error {
 		writeValue = null.Null{}
 	} else {
 		switch writeValue.(type) {
-		case uint32:
-			out, _ := writeValue.(uint32)
-			writeValue = out
-		case float32:
-			out, _ := writeValue.(float32)
-			writeValue = out
-		case float64:
-			out, _ := writeValue.(float64)
-			writeValue = out
-		case string:
-			writeValue = fmt.Sprintf("%s", writeValue)
+		case uint32, float32, float64, string:
 		default:
-			err = fmt.Errorf("unable to handle a type %T", writeValue)
-			return err
-		}
-		if err != nil {
-			log.Printf("Expects a %T", rp.Object.Properties[0].Data)
-			return err
+			return fmt.Errorf("unable to handle a type %T", writeValue)
 		}
 	}
 

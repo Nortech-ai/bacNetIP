@@ -8,16 +8,7 @@ import (
 	"github.com/Nortech-ai/bacNetIP/btypes"
 )
 
-const compareErrFmt = "Mismatch in %s when decoding values. Expected: %d, received: %d"
-
-func compare(t *testing.T, name string, a uint, b uint) {
-	// See if the initial read property data matches the output read property
-	if a != b {
-		t.Fatalf(compareErrFmt, name, a, b)
-	}
-}
-
-func subTestNPDU(t *testing.T, n btypes.NPDU) func(t *testing.T) {
+func subTestNPDU(n btypes.NPDU) func(t *testing.T) {
 	return func(t *testing.T) {
 		e := NewEncoder()
 		e.NPDU(&n)
@@ -47,16 +38,16 @@ func TestNPDU(t *testing.T) {
 		ExpectingReply:        false,
 		Priority:              btypes.Urgent,
 	}
-	subTestNPDU(t, n)
+	subTestNPDU(n)
 
 	n.NetworkLayerMessageType = 20
-	t.Run("Testing Message Type", subTestNPDU(t, n))
+	t.Run("Testing Message Type", subTestNPDU(n))
 
 	n.NetworkLayerMessageType = 0
 	n.IsNetworkLayerMessage = false
 	n.ExpectingReply = true
-	t.Run("Testing Expecting Reply", subTestNPDU(t, n))
-	subTestNPDU(t, n)
+	t.Run("Testing Expecting Reply", subTestNPDU(n))
+	subTestNPDU(n)
 
 	n.Destination = &btypes.Address{
 		Net: 314,
@@ -64,19 +55,19 @@ func TestNPDU(t *testing.T) {
 		Len: 4,
 	}
 	n.HopCount = 21
-	t.Run("Testing Destination Address", subTestNPDU(t, n))
-	subTestNPDU(t, n)
+	t.Run("Testing Destination Address", subTestNPDU(n))
+	subTestNPDU(n)
 
 	n.Source = &btypes.Address{
 		Net: 444,
 		Adr: []uint8{1, 9, 6, 10},
 		Len: 4,
 	}
-	t.Run("Testing Dest and Src Address", subTestNPDU(t, n))
+	t.Run("Testing Dest and Src Address", subTestNPDU(n))
 
 }
 
-func subTestAPDU(t *testing.T, a btypes.APDU) func(t *testing.T) {
+func subTestAPDU(a btypes.APDU) func(t *testing.T) {
 	return func(t *testing.T) {
 		e := NewEncoder()
 		e.APDU(a)
@@ -109,32 +100,32 @@ func TestAPDU(t *testing.T) {
 		InvokeId:                  62,
 		Service:                   btypes.ServiceConfirmedReadProperty,
 	}
-	t.Run("Generic APDU Test", subTestAPDU(t, a))
+	t.Run("Generic APDU Test", subTestAPDU(a))
 
 	// Segmented message
 	a.SegmentedMessage = true
 	a.Sequence = 31
 	a.WindowNumber = 43
-	t.Run("Segmented Message Test", subTestAPDU(t, a))
+	t.Run("Segmented Message Test", subTestAPDU(a))
 
 	a.MaxSegs = 65
-	t.Run("Special Max Segs case", subTestAPDU(t, a))
+	t.Run("Special Max Segs case", subTestAPDU(a))
 
 	a.MaxApdu = 206
-	t.Run("Lon Works APDU case", subTestAPDU(t, a))
+	t.Run("Lon Works APDU case", subTestAPDU(a))
 
 }
 
 func TestSegsApduEncode(t *testing.T) {
 	// Test is structured as parameter 1, parameter 2, output
 	tests := [][]uint{
-		[]uint{0, 1, 0},
-		[]uint{64, 60, 0x61},
-		[]uint{80, 205, 0x72},
-		[]uint{80, 405, 0x73},
-		[]uint{80, 1005, 0x74},
-		[]uint{3, 1035, 0x15},
-		[]uint{9, 1035, 0x35},
+		{0, 1, 0},
+		{64, 60, 0x61},
+		{80, 205, 0x72},
+		{80, 405, 0x73},
+		{80, 1005, 0x74},
+		{3, 1035, 0x15},
+		{9, 1035, 0x35},
 	}
 
 	for _, test := range tests {
@@ -254,7 +245,7 @@ func TestReadAckProperty(t *testing.T) {
 				Instance: 1000,
 			},
 			Properties: []btypes.Property{
-				btypes.Property{
+				{
 					Type:       3921,
 					ArrayIndex: ArrayAll,
 					Data:       data,
@@ -278,7 +269,7 @@ func TestReadProperty(t *testing.T) {
 				Instance: 1000,
 			},
 			Properties: []btypes.Property{
-				btypes.Property{
+				{
 					Type:       3921,
 					ArrayIndex: ArrayAll,
 				},

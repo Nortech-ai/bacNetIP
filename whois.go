@@ -47,15 +47,8 @@ func (c *client) WhoIs(wh *WhoIsOpts) ([]btypes.Device, error) {
 	if err != nil {
 		return nil, err
 	}
-	// Subscribe to any changes in the range. If it is a broadcast,
-	var start, end int
-	if low == -1 || high == -1 {
-		start = 0
-		end = maxInt
-	} else {
-		start = low
-		end = high
-	}
+	// Subscribe to any changes in the range.
+	start, end := low, high
 	// Register before sending. A reply released by Send must find this subscriber.
 	var sendErr error
 	values, err := c.utsm.Collect(start, end, func() error {
